@@ -42,7 +42,7 @@ td{padding:12px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
 .empty{text-align:center;color:var(--mut);padding:30px}
 .hint{font-size:12px;color:var(--mut);margin-top:8px}
 svg{max-width:100%}
-#auth{max-width:380px;margin:10vh auto;padding:12px}#auth .panel{display:grid;gap:12px}#auth h2{margin:0}.lnk{background:none;border:0;color:var(--pr);cursor:pointer;font:inherit;padding:0}
+#auth{max-width:380px;margin:10vh auto;padding:12px}#auth .panel{display:grid;gap:12px}#aMsg{color:var(--r);font-size:13px}#auth h2{margin:0}.lnk{background:none;border:0;color:var(--pr);cursor:pointer;font:inherit;padding:0}
 </style></head><body>
 <div id="auth" hidden><div class="panel"><h2 id="aTitle">Sign in</h2>
  <div><label>Email</label><input id="em" type="email" autocomplete="email"></div>
@@ -130,16 +130,19 @@ function render(){
  $('#curve').innerHTML=pts.length>1?`<svg viewBox="0 0 ${CW} ${CH}" preserveAspectRatio="none" style="width:100%;height:200px"><polyline points="${xy}" fill="none" stroke="var(--pr)" stroke-width="3" vector-effect="non-scaling-stroke"/></svg><div class="hint">${m(S.start)} → ${m(s.bal)}</div>`:'<div class="empty">Add trades to see your balance curve</div>';
 }
 const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-$('#f').date.valueAsDate=new Date();
+$('#f').elements.date.valueAsDate=new Date();
 
 // ===== Supabase config: paste your values =====
-const SUPABASE_URL='sb_publishable_QjEYHPU7EjvMrUD4g6wVsA_PVUTnRgU';          // e.g. https://abcdxyz.supabase.co
+const SUPABASE_URL='https://vdrlgsnsztgtjsjcbawj.supabase.co/rest/v1/';          // e.g. https://abcdxyz.supabase.co
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcmxnc25zenRndGpzamNiYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NDYyNzcsImV4cCI6MjEwNzIyMjI3N30.FNActX_4YUOW6LQj1AVBsLYJT8Xb_X0huQTyi6lISKI'; // the anon / publishable key (NOT service_role)
 // ===============================================
-const sb=SUPABASE_URL.startsWith('http')?supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
+let sb=null,cfgMsg='';
+if(!/^https?:\/\//.test(SUPABASE_URL.trim())||SUPABASE_ANON_KEY.startsWith('YOUR_'))cfgMsg='Setup needed: paste your Supabase URL and anon key at the top of the <script> in index.html, then reload.';
+else if(!window.supabase)cfgMsg='The Supabase library failed to load (internet or ad-blocker?). Check the connection and reload.';
+else{try{sb=window.supabase.createClient(SUPABASE_URL.trim(),SUPABASE_ANON_KEY.trim())}catch(e){cfgMsg='Invalid Supabase settings: '+e.message}}
 let U=null,signup=false,tmr;
 const fromRow=r=>({id:r.id,date:r.trade_date,ticker:r.ticker,side:r.side,strategy:r.strategy||'',entry:+r.entry_price,exit:+r.exit_price,stop:+r.stop_loss,shares:+r.shares,fees:+r.fees||0,ovr:r.pnl_override==null?'':+r.pnl_override});
-const err=e=>say('Error: '+(e.message||e));
+const err=e=>{let t=e.message||String(e);if(/schema cache|does not exist|relation/i.test(t))t+=' — run schema.sql in the Supabase SQL Editor.';say('Error: '+t)};
 function showAuth(msg){U=null;S={start:10000,trades:[]};$('#app').hidden=true;$('#auth').hidden=false;$('#aMsg').textContent=msg||''}
 async function enter(user){
  U=user;$('#auth').hidden=true;$('#app').hidden=false;
@@ -148,27 +151,28 @@ async function enter(user){
  S.trades=t.data.map(fromRow);S.start=st.data?+st.data.start_balance:10000;render();
 }
 async function boot(){
- if(!sb)return showAuth('Add your Supabase URL and anon key at the top of the script in index.html.');
+ if(!sb)return showAuth(cfgMsg);
  const{data:{session}}=await sb.auth.getSession();
  session?enter(session.user):showAuth();
 }
 $('#sw').onclick=()=>{signup=!signup;$('#aTitle').textContent=signup?'Sign up':'Sign in';$('#go').textContent=signup?'Create account':'Sign in';$('#aAsk').textContent=signup?'Have an account?':'No account?';$('#sw').textContent=signup?'Sign in':'Sign up';$('#aMsg').textContent=''};
 $('#go').onclick=async()=>{
- if(!sb)return;const email=$('#em').value.trim(),password=$('#pw').value;
+ if(!sb)return $('#aMsg').textContent=cfgMsg;const email=$('#em').value.trim(),password=$('#pw').value;
  if(!email||password.length<6)return $('#aMsg').textContent='Enter an email and a password of 6+ characters.';
  $('#aMsg').textContent='Please wait…';
- const r=signup?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
+ let r;try{r=signup?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password})}catch(e){return $('#aMsg').textContent='Network error: '+e.message}
  if(r.error)return $('#aMsg').textContent=r.error.message;
+ if(signup&&r.data.user&&!r.data.session&&(r.data.user.identities||[]).length===0)return $('#aMsg').textContent='This email is already registered. Please sign in.';
  if(r.data.session)enter(r.data.user);
  else $('#aMsg').textContent='Account created. Check your email to confirm, then sign in.';
 };
 $('#pw').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
 $('#out').onclick=async()=>{await sb.auth.signOut();showAuth()};
-$('#f').onsubmit=async e=>{e.preventDefault();const f=e.target,v=n=>f[n].value;
+$('#f').onsubmit=async e=>{e.preventDefault();const f=e.target,v=n=>f.elements[n].value;
  const row={trade_date:v('date'),ticker:v('ticker').toUpperCase().trim(),side:v('side'),strategy:v('strategy'),entry_price:+v('entry'),exit_price:+v('exit'),stop_loss:+v('stop'),shares:+v('shares'),fees:+v('fees')||0,pnl_override:v('ovr')===''?null:+v('ovr'),user_id:U.id};
  const{data,error}=await sb.from('trades').insert(row).select().single();
  if(error)return err(error);
- S.trades.push(fromRow(data));f.reset();f.date.valueAsDate=new Date();render()};
+ S.trades.push(fromRow(data));f.reset();f.elements.date.valueAsDate=new Date();render()};
 $('#start').oninput=e=>{S.start=+e.target.value||0;render();clearTimeout(tmr);
  tmr=setTimeout(async()=>{const{error}=await sb.from('settings').upsert({user_id:U.id,start_balance:S.start},{onConflict:'user_id'});if(error)err(error)},600)};
 $('#tb').onclick=async e=>{const id=e.target.dataset.id;if(id&&confirm('Delete this trade?')){
