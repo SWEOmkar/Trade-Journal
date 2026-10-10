@@ -133,8 +133,8 @@ const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 $('#f').elements.date.valueAsDate=new Date();
 
 // ===== Supabase config: paste your values =====
-const SUPABASE_URL='https://vdrlgsnsztgtjsjcbawj.supabase.co/rest/v1/';          // e.g. https://abcdxyz.supabase.co
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcmxnc25zenRndGpzamNiYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NDYyNzcsImV4cCI6MjEwNzIyMjI3N30.FNActX_4YUOW6LQj1AVBsLYJT8Xb_X0huQTyi6lISKI'; // the anon / publishable key (NOT service_role)
+const SUPABASE_URL='https://vdrlgsnsztgtjsjcbawj.supabase.co';          // e.g. https://abcdxyz.supabase.co
+const SUPABASE_ANON_KEY='sb_publishable_QjEYHPU7EjvMrUD4g6wVsA_PVUTnRgU'; // the anon / publishable key (NOT service_role)
 // ===============================================
 let sb=null,cfgMsg='';
 if(!/^https?:\/\//.test(SUPABASE_URL.trim())||SUPABASE_ANON_KEY.startsWith('YOUR_'))cfgMsg='Setup needed: paste your Supabase URL and anon key at the top of the <script> in index.html, then reload.';
