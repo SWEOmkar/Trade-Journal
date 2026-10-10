@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Trade Journal</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
@@ -29,6 +29,8 @@ body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 Inter,system-ui
 h3{margin:0 0 12px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--pr);text-align:center}
 form{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;align-items:end}
 label{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;display:block}
+textarea{width:100%;margin-top:4px;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);color:var(--tx);font:inherit;resize:vertical}
+td.nt{white-space:normal;min-width:220px;max-width:340px}
 input,select{width:100%;margin-top:4px;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);color:var(--tx);font:inherit}
 button.b{padding:9px 14px;border:0;border-radius:8px;background:var(--pr);color:#fff;font-weight:600;cursor:pointer;font:inherit;font-weight:600}
 button.o{background:none;border:1px solid var(--bd);color:var(--tx)}
@@ -73,11 +75,12 @@ svg{max-width:100%}
    <div><label>Shares</label><input name="shares" type="number" step="any" required></div>
    <div><label>Fees ($)</label><input name="fees" type="number" step="any" value="0"></div>
    <div><label>P&amp;L override</label><input name="ovr" type="number" step="any" placeholder="optional"></div>
+   <div style="grid-column:1/-1"><label>Notes / thoughts (why you took it, how you felt, what to improve)</label><textarea name="notes" rows="2" placeholder="Write your journal caption here…"></textarea></div>
    <button class="b" type="submit">Add trade</button>
   </form>
   <div class="hint">P&amp;L, R:R, result and account balance are calculated automatically from entry, exit, shares and fees. Use “P&amp;L override” only if you want to type the exact profit/loss (e.g. -67.50). Data is saved to your Supabase database.</div>
  </div>
- <div class="panel scroll"><table><thead><tr><th>DATE<th>TICKER<th>SIDE<th>STRATEGY<th>ENTRY<th>EXIT<th>STOP LOSS<th>SHARES<th>NET P&amp;L<th>R:R<th>RESULT<th></tr></thead><tbody id="tb"></tbody></table></div>
+ <div class="panel scroll"><table><thead><tr><th>DATE<th>TICKER<th>SIDE<th>STRATEGY<th>ENTRY<th>EXIT<th>STOP LOSS<th>SHARES<th>NET P&amp;L<th>R:R<th>RESULT<th>NOTES<th></tr></thead><tbody id="tb"></tbody></table></div>
 </div>
 
 <div id="dash" hidden>
@@ -115,7 +118,7 @@ function render(){
  $('#start').value=S.start;
  $('#aPnl').textContent=sm(s.net);$('#aPnl').className='big '+cls(s.net);
  $('#aBal').textContent=m(s.bal);
- $('#tb').innerHTML=s.T.length?s.T.map(t=>`<tr><td>${t.date}<td>${esc(t.ticker)}<td>${t.side}<td>${esc(t.strategy)}<td>${m(t.entry)}<td>${m(t.exit)}<td>${m(t.stop)}<td>${t.shares}<td class="${cls(t.pnl)}"><b>${sm(t.pnl)}</b><td>${t.rr.toFixed(2)}<td><b>${t.res}</b><td><button class="del" data-id="${t.id}" title="Delete">✕</button></tr>`).join(''):'<tr><td colspan="12" class="empty">No trades yet — add your first trade above.</td></tr>';
+ $('#tb').innerHTML=s.T.length?s.T.map(t=>`<tr><td>${t.date}<td>${esc(t.ticker)}<td>${t.side}<td>${esc(t.strategy)}<td>${m(t.entry)}<td>${m(t.exit)}<td>${m(t.stop)}<td>${t.shares}<td class="${cls(t.pnl)}"><b>${sm(t.pnl)}</b><td>${t.rr.toFixed(2)}<td><b>${t.res}</b>${noteCell(t)}<td><button class="del" data-id="${t.id}" title="Delete">✕</button></tr>`).join(''):'<tr><td colspan="13" class="empty">No trades yet — add your first trade above.</td></tr>';
  $('#stats').innerHTML=[['Total trades',s.T.length],['Win rate',s.wr.toFixed(0)+'%',s.wr>=50?'pos':'neg'],['Net P&L',sm(s.net),cls(s.net)],['Profit factor',s.pf===Infinity?'∞':s.pf.toFixed(2)],['Account balance',m(s.bal)],['Expectancy ratio',s.expR.toFixed(2)+'R',cls(s.exp)],['Expectancy / trade',sm(s.exp),cls(s.exp)],['Return',(S.start?s.net/S.start*100:0).toFixed(2)+'%',cls(s.net)]].map(x=>`<div class="stat"><small>${x[0]}</small><b class="${x[2]||''}">${x[1]}</b></div>`).join('');
  // bars
  const W=520,H=200,mx=Math.max(1,...s.T.map(t=>Math.abs(t.pnl))),bw=s.T.length?Math.min(30,(W-10)/s.T.length-4):10,mid=H/2;
@@ -129,6 +132,8 @@ function render(){
  const xy=pts.map((v,i)=>`${pts.length>1?i/(pts.length-1)*CW:0},${CH-10-(v-lo)/rg*(CH-20)}`).join(' ');
  $('#curve').innerHTML=pts.length>1?`<svg viewBox="0 0 ${CW} ${CH}" preserveAspectRatio="none" style="width:100%;height:200px"><polyline points="${xy}" fill="none" stroke="var(--pr)" stroke-width="3" vector-effect="non-scaling-stroke"/></svg><div class="hint">${m(S.start)} → ${m(s.bal)}</div>`:'<div class="empty">Add trades to see your balance curve</div>';
 }
+let editId=null;
+const noteCell=t=>editId===String(t.id)?`<td class="nt"><textarea id="ne" rows="3">${esc(t.notes)}</textarea><div style="margin-top:6px"><button class="b" data-save="${t.id}">Save</button> <button class="b o" data-cancel="1">Cancel</button></div>`:`<td class="nt">${esc(t.notes)||'<span style="color:var(--mut)">—</span>'} <button class="del" data-edit="${t.id}" title="Edit note">✎</button>`;
 const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 $('#f').elements.date.valueAsDate=new Date();
 
@@ -139,10 +144,10 @@ const SUPABASE_ANON_KEY='sb_publishable_QjEYHPU7EjvMrUD4g6wVsA_PVUTnRgU'; // the
 let sb=null,cfgMsg='';
 if(!/^https?:\/\//.test(SUPABASE_URL.trim())||SUPABASE_ANON_KEY.startsWith('YOUR_'))cfgMsg='Setup needed: paste your Supabase URL and anon key at the top of the <script> in index.html, then reload.';
 else if(!window.supabase)cfgMsg='The Supabase library failed to load (internet or ad-blocker?). Check the connection and reload.';
-else{try{sb=window.supabase.createClient(SUPABASE_URL.trim(),SUPABASE_ANON_KEY.trim())}catch(e){cfgMsg='Invalid Supabase settings: '+e.message}}
+else{try{sb=window.supabase.createClient(SUPABASE_URL.trim().replace(/\/+$/,'').replace(/\/(rest|auth)\/v1.*$/,''),SUPABASE_ANON_KEY.trim())}catch(e){cfgMsg='Invalid Supabase settings: '+e.message}}
 let U=null,signup=false,tmr;
-const fromRow=r=>({id:r.id,date:r.trade_date,ticker:r.ticker,side:r.side,strategy:r.strategy||'',entry:+r.entry_price,exit:+r.exit_price,stop:+r.stop_loss,shares:+r.shares,fees:+r.fees||0,ovr:r.pnl_override==null?'':+r.pnl_override});
-const err=e=>{let t=e.message||String(e);if(/schema cache|does not exist|relation/i.test(t))t+=' — run schema.sql in the Supabase SQL Editor.';say('Error: '+t)};
+const fromRow=r=>({id:r.id,date:r.trade_date,ticker:r.ticker,side:r.side,strategy:r.strategy||'',entry:+r.entry_price,exit:+r.exit_price,stop:+r.stop_loss,shares:+r.shares,fees:+r.fees||0,ovr:r.pnl_override==null?'':+r.pnl_override,notes:r.notes||''});
+const err=e=>{let t=e.message||String(e);if(/schema cache|does not exist|relation|column/i.test(t))t+=' — run schema.sql in the Supabase SQL Editor.';say('Error: '+t)};
 function showAuth(msg){U=null;S={start:10000,trades:[]};$('#app').hidden=true;$('#auth').hidden=false;$('#aMsg').textContent=msg||''}
 async function enter(user){
  U=user;$('#auth').hidden=true;$('#app').hidden=false;
@@ -169,15 +174,21 @@ $('#go').onclick=async()=>{
 $('#pw').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
 $('#out').onclick=async()=>{await sb.auth.signOut();showAuth()};
 $('#f').onsubmit=async e=>{e.preventDefault();const f=e.target,v=n=>f.elements[n].value;
- const row={trade_date:v('date'),ticker:v('ticker').toUpperCase().trim(),side:v('side'),strategy:v('strategy'),entry_price:+v('entry'),exit_price:+v('exit'),stop_loss:+v('stop'),shares:+v('shares'),fees:+v('fees')||0,pnl_override:v('ovr')===''?null:+v('ovr'),user_id:U.id};
+ const row={trade_date:v('date'),ticker:v('ticker').toUpperCase().trim(),side:v('side'),strategy:v('strategy'),entry_price:+v('entry'),exit_price:+v('exit'),stop_loss:+v('stop'),shares:+v('shares'),fees:+v('fees')||0,pnl_override:v('ovr')===''?null:+v('ovr'),notes:v('notes').trim()||null,user_id:U.id};
  const{data,error}=await sb.from('trades').insert(row).select().single();
  if(error)return err(error);
  S.trades.push(fromRow(data));f.reset();f.elements.date.valueAsDate=new Date();render()};
 $('#start').oninput=e=>{S.start=+e.target.value||0;render();clearTimeout(tmr);
  tmr=setTimeout(async()=>{const{error}=await sb.from('settings').upsert({user_id:U.id,start_balance:S.start},{onConflict:'user_id'});if(error)err(error)},600)};
-$('#tb').onclick=async e=>{const id=e.target.dataset.id;if(id&&confirm('Delete this trade?')){
- const{error}=await sb.from('trades').delete().eq('id',id);if(error)return err(error);
- S.trades=S.trades.filter(t=>String(t.id)!==id);render()}};
+$('#tb').onclick=async e=>{const d=e.target.dataset;
+ if(d.edit){editId=d.edit;return render()}
+ if(d.cancel){editId=null;return render()}
+ if(d.save){const notes=$('#ne').value.trim();
+  const{error}=await sb.from('trades').update({notes:notes||null}).eq('id',d.save);if(error)return err(error);
+  const t=S.trades.find(t=>String(t.id)===d.save);if(t)t.notes=notes;editId=null;return render()}
+ if(d.id&&confirm('Delete this trade?')){
+  const{error}=await sb.from('trades').delete().eq('id',d.id);if(error)return err(error);
+  S.trades=S.trades.filter(t=>String(t.id)!==d.id);render()}};
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));$('#log').hidden=b.dataset.t!=='log';$('#dash').hidden=b.dataset.t!=='dash'});
 let DL=null;
 (async()=>{try{DL=await window.claude.use('downloads')}catch(e){}
@@ -185,7 +196,7 @@ let DL=null;
 const say=t=>{$('#msg').textContent=t;setTimeout(()=>$('#msg').textContent='',4000)};
 async function dl(name,data){try{await DL.save({filename:name,data});say('Saved '+name)}catch(e){say(e.code==='declined'?'Download cancelled.':'Download failed: '+(e.message||e.code))}}
 $('#xl').onclick=()=>{const s=stats();
- const rows=s.T.map(t=>({Date:t.date,Ticker:t.ticker,Side:t.side,Strategy:t.strategy,Entry:t.entry,Exit:t.exit,'Stop Loss':t.stop,Shares:t.shares,Fees:t.fees,'Net P&L':t.pnl,'R:R':+t.rr.toFixed(2),Result:t.res}));
+ const rows=s.T.map(t=>({Date:t.date,Ticker:t.ticker,Side:t.side,Strategy:t.strategy,Entry:t.entry,Exit:t.exit,'Stop Loss':t.stop,Shares:t.shares,Fees:t.fees,'Net P&L':t.pnl,'R:R':+t.rr.toFixed(2),Result:t.res,Notes:t.notes||''}));
  let b=S.start;const run=s.T.map(t=>({Date:t.date,Ticker:t.ticker,'Net P&L':t.pnl,'Account Balance':+(b+=t.pnl).toFixed(2)}));
  const d=[['Metric','Value'],['Starting balance',S.start],['Account balance',+s.bal.toFixed(2)],['Total trades',s.T.length],['Wins',s.w],['Losses',s.l],['Win rate %',+s.wr.toFixed(1)],['Net P&L',+s.net.toFixed(2)],['Profit factor',s.pf===Infinity?'Inf':+s.pf.toFixed(2)],['Return %',+(S.start?s.net/S.start*100:0).toFixed(2)],['Expectancy ratio (R)',+s.expR.toFixed(2)],['Expectancy per trade',+s.exp.toFixed(2)]];
  const wb=XLSX.utils.book_new();
@@ -197,7 +208,7 @@ $('#pf').onclick=()=>{const s=stats(),doc=new window.jspdf.jsPDF({orientation:'l
  doc.setFontSize(18);doc.text('Trade Journal',14,16);doc.setFontSize(10);
  doc.text(`Starting balance: ${m(S.start)}   Account balance: ${m(s.bal)}   Net P&L: ${sm(s.net)}`,14,24);
  doc.text(`Trades: ${s.T.length}   Win rate: ${s.wr.toFixed(0)}% (${s.w}W / ${s.l}L)   Profit factor: ${s.pf===Infinity?'Inf':s.pf.toFixed(2)}   Expectancy: ${sm(s.exp)}/trade (${s.expR.toFixed(2)}R)`,14,30);
- doc.autoTable({startY:36,head:[['Date','Ticker','Side','Strategy','Entry','Exit','Stop','Shares','Net P&L','R:R','Result']],body:s.T.map(t=>[t.date,t.ticker,t.side,t.strategy,m(t.entry),m(t.exit),m(t.stop),t.shares,sm(t.pnl),t.rr.toFixed(2),t.res]),headStyles:{fillColor:[124,58,237]},styles:{fontSize:9}});
+ doc.autoTable({startY:36,head:[['Date','Ticker','Side','Strategy','Entry','Exit','Stop','Shares','Net P&L','R:R','Result','Notes']],body:s.T.map(t=>[t.date,t.ticker,t.side,t.strategy,m(t.entry),m(t.exit),m(t.stop),t.shares,sm(t.pnl),t.rr.toFixed(2),t.res,t.notes||'']),columnStyles:{11:{cellWidth:70}},headStyles:{fillColor:[124,58,237]},styles:{fontSize:9}});
  dl('trade-journal.pdf',doc.output('arraybuffer'))};
 render();boot();
 </script></body></html>
