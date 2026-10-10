@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trade Journal</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root{--bg:#f3f4f6;--card:#f9fafb;--surf:#fff;--tx:#111827;--mut:#6b7280;--bd:#e5e7eb;--pr:#7c3aed;--g:#10b981;--r:#ef4444;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1117;--card:#1a1d27;--surf:#14161e;--tx:#f3f4f6;--mut:#9ca3af;--bd:#2b2f3b;--pr:#a78bfa}}
+:root[data-theme="dark"]{--bg:#0f1117;--card:#1a1d27;--surf:#14161e;--tx:#f3f4f6;--mut:#9ca3af;--bd:#2b2f3b;--pr:#a78bfa}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:12px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--bd);margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.tab{padding:12px 20px;font-weight:600;color:var(--mut);cursor:pointer;border:0;background:none;border-bottom:2px solid transparent;font-size:15px}
+.tab.on{color:var(--pr);border-color:var(--pr)}
+.sp{flex:1}
+.panel{background:var(--surf);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:16px}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.stat{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;text-align:center}
+.stat small{display:block;color:var(--mut);font-weight:600;letter-spacing:.06em;font-size:11px;text-transform:uppercase}
+.stat b{display:block;font-size:24px;margin-top:8px}
+.pos{color:var(--g)}.neg{color:var(--r)}
+h3{margin:0 0 12px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--pr);text-align:center}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;align-items:end}
+label{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;display:block}
+input,select{width:100%;margin-top:4px;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);color:var(--tx);font:inherit}
+button.b{padding:9px 14px;border:0;border-radius:8px;background:var(--pr);color:#fff;font-weight:600;cursor:pointer;font:inherit;font-weight:600}
+button.o{background:none;border:1px solid var(--bd);color:var(--tx)}
+.acct{display:flex;gap:16px;flex-wrap:wrap;align-items:end;justify-content:space-between}
+.acct .big{font-size:28px;font-weight:700}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:760px}
+th{text-align:left;font-size:11px;color:var(--mut);letter-spacing:.06em;padding:12px 8px;background:var(--card)}
+td{padding:12px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
+.del{background:none;border:0;color:var(--mut);cursor:pointer;font-size:16px}
+.empty{text-align:center;color:var(--mut);padding:30px}
+.hint{font-size:12px;color:var(--mut);margin-top:8px}
+svg{max-width:100%}
+#auth{max-width:380px;margin:10vh auto;padding:12px}#auth .panel{display:grid;gap:12px}#auth h2{margin:0}.lnk{background:none;border:0;color:var(--pr);cursor:pointer;font:inherit;padding:0}
+</style></head><body>
+<div id="auth" hidden><div class="panel"><h2 id="aTitle">Sign in</h2>
+ <div><label>Email</label><input id="em" type="email" autocomplete="email"></div>
+ <div><label>Password</label><input id="pw" type="password" autocomplete="current-password" minlength="6"></div>
+ <button class="b" id="go">Sign in</button>
+ <div class="hint" id="aMsg"></div>
+ <div class="hint"><span id="aAsk">No account?</span> <button class="lnk" id="sw">Sign up</button></div>
+</div></div>
+<div class="wrap" id="app" hidden>
+<div class="tabs"><button class="tab on" data-t="log">Trade Log</button><button class="tab" data-t="dash">Dashboard</button><span class="sp"></span>
+<button class="b o" id="xl">⬇ Excel</button>&nbsp;<button class="b o" id="pf">⬇ PDF</button>&nbsp;<button class="b o" id="out">Sign out</button></div>
+
+<div id="log">
+ <div class="panel acct">
+  <div><label>Starting balance ($)</label><input id="start" type="number" step="0.01" style="width:170px"></div>
+  <div><label>Net P&amp;L</label><div class="big" id="aPnl">$0.00</div></div>
+  <div><label>Account balance</label><div class="big" id="aBal">$0.00</div></div>
+ </div>
+ <div class="panel">
+  <form id="f">
+   <div><label>Date</label><input name="date" type="date" required></div>
+   <div><label>Ticker</label><input name="ticker" required placeholder="AAPL"></div>
+   <div><label>Side</label><select name="side"><option>Long</option><option>Short</option></select></div>
+   <div><label>Strategy</label><input name="strategy" placeholder="Breakout"></div>
+   <div><label>Entry</label><input name="entry" type="number" step="any" required></div>
+   <div><label>Exit</label><input name="exit" type="number" step="any" required></div>
+   <div><label>Stop loss</label><input name="stop" type="number" step="any" required></div>
+   <div><label>Shares</label><input name="shares" type="number" step="any" required></div>
+   <div><label>Fees ($)</label><input name="fees" type="number" step="any" value="0"></div>
+   <div><label>P&amp;L override</label><input name="ovr" type="number" step="any" placeholder="optional"></div>
+   <button class="b" type="submit">Add trade</button>
+  </form>
+  <div class="hint">P&amp;L, R:R, result and account balance are calculated automatically from entry, exit, shares and fees. Use “P&amp;L override” only if you want to type the exact profit/loss (e.g. -67.50). Data is saved to your Supabase database.</div>
+ </div>
+ <div class="panel scroll"><table><thead><tr><th>DATE<th>TICKER<th>SIDE<th>STRATEGY<th>ENTRY<th>EXIT<th>STOP LOSS<th>SHARES<th>NET P&amp;L<th>R:R<th>RESULT<th></tr></thead><tbody id="tb"></tbody></table></div>
+</div>
+
+<div id="dash" hidden>
+ <div class="grid g4" id="stats" style="margin-bottom:16px"></div>
+ <div class="grid g2">
+  <div class="panel"><h3>P&amp;L per trade</h3><div id="bars"></div></div>
+  <div class="panel"><h3>Win / Loss breakdown</h3><div id="donut" style="text-align:center"></div></div>
+ </div>
+ <div class="panel"><h3>Account balance curve</h3><div id="curve"></div></div>
+</div>
+<div class="hint" id="msg"></div>
+</div>
+<script>
+const $=s=>document.querySelector(s),KEY='tj_v1';
+let S={start:10000,trades:[]};
+const m=n=>(n<0?'-':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const sm=n=>(n>0?'+':'')+m(n);
+const cls=n=>n>0?'pos':n<0?'neg':'';
+function calc(t){
+ const dir=t.side==='Long'?1:-1;
+ const pnl=t.ovr!==''&&t.ovr!=null?+t.ovr:(t.exit-t.entry)*dir*t.shares-(t.fees||0);
+ const risk=Math.abs(t.entry-t.stop),mv=(t.exit-t.entry)*dir;
+ const rr=pnl>0&&risk>0?Math.abs(mv)/risk:0;
+ return{...t,pnl:Math.round(pnl*100)/100,rr,res:pnl>0?'Win':pnl<0?'Loss':'Breakeven'};
+}
+function stats(){
+ const T=[...S.trades].sort((a,b)=>a.date.localeCompare(b.date)).map(calc);
+ const w=T.filter(t=>t.pnl>0),l=T.filter(t=>t.pnl<0);
+ const net=T.reduce((a,t)=>a+t.pnl,0),gp=w.reduce((a,t)=>a+t.pnl,0),gl=Math.abs(l.reduce((a,t)=>a+t.pnl,0));
+ const n=T.length,aw=w.length?gp/w.length:0,al=l.length?gl/l.length:0,exp=n?(w.length/n)*aw-(l.length/n)*al:0;
+ return{T,w:w.length,l:l.length,net,pf:gl?gp/gl:(gp?Infinity:0),wr:n?w.length/n*100:0,bal:S.start+net,exp,expR:al?exp/al:0};
+}
+function render(){
+ const s=stats();
+ $('#start').value=S.start;
+ $('#aPnl').textContent=sm(s.net);$('#aPnl').className='big '+cls(s.net);
+ $('#aBal').textContent=m(s.bal);
+ $('#tb').innerHTML=s.T.length?s.T.map(t=>`<tr><td>${t.date}<td>${esc(t.ticker)}<td>${t.side}<td>${esc(t.strategy)}<td>${m(t.entry)}<td>${m(t.exit)}<td>${m(t.stop)}<td>${t.shares}<td class="${cls(t.pnl)}"><b>${sm(t.pnl)}</b><td>${t.rr.toFixed(2)}<td><b>${t.res}</b><td><button class="del" data-id="${t.id}" title="Delete">✕</button></tr>`).join(''):'<tr><td colspan="12" class="empty">No trades yet — add your first trade above.</td></tr>';
+ $('#stats').innerHTML=[['Total trades',s.T.length],['Win rate',s.wr.toFixed(0)+'%',s.wr>=50?'pos':'neg'],['Net P&L',sm(s.net),cls(s.net)],['Profit factor',s.pf===Infinity?'∞':s.pf.toFixed(2)],['Account balance',m(s.bal)],['Expectancy ratio',s.expR.toFixed(2)+'R',cls(s.exp)],['Expectancy / trade',sm(s.exp),cls(s.exp)],['Return',(S.start?s.net/S.start*100:0).toFixed(2)+'%',cls(s.net)]].map(x=>`<div class="stat"><small>${x[0]}</small><b class="${x[2]||''}">${x[1]}</b></div>`).join('');
+ // bars
+ const W=520,H=200,mx=Math.max(1,...s.T.map(t=>Math.abs(t.pnl))),bw=s.T.length?Math.min(30,(W-10)/s.T.length-4):10,mid=H/2;
+ $('#bars').innerHTML=s.T.length?`<svg viewBox="0 0 ${W} ${H}"><line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--bd)"/>${s.T.map((t,i)=>{const h=Math.max(2,Math.abs(t.pnl)/mx*(mid-8));return`<rect x="${5+i*(bw+4)}" y="${t.pnl>=0?mid-h:mid}" width="${bw}" height="${h}" rx="3" fill="var(${t.pnl>=0?'--g':'--r'})"><title>${esc(t.ticker)} ${sm(t.pnl)}</title></rect>`}).join('')}</svg>`:'<div class="empty">No data</div>';
+ // donut
+ const n=s.T.length,C=2*Math.PI*45,wl=n?s.w/n*C:0;
+ $('#donut').innerHTML=`<svg width="200" height="200" viewBox="0 0 120 120"><circle cx="60" cy="60" r="45" fill="none" stroke="${n?'var(--r)':'var(--bd)'}" stroke-width="20"/><circle cx="60" cy="60" r="45" fill="none" stroke="var(--g)" stroke-width="20" stroke-dasharray="${wl} ${C}" transform="rotate(-90 60 60)"/><text x="60" y="66" text-anchor="middle" font-size="16" font-weight="700" fill="var(--tx)">${s.wr.toFixed(0)}%</text></svg><div class="hint"><span class="pos">●</span> Wins (${s.w}) &nbsp; <span class="neg">●</span> Losses (${s.l})</div>`;
+ // curve
+ let b=S.start;const pts=[b,...s.T.map(t=>b+=t.pnl)];
+ const lo=Math.min(...pts),hi=Math.max(...pts),rg=hi-lo||1,CW=1000,CH=200;
+ const xy=pts.map((v,i)=>`${pts.length>1?i/(pts.length-1)*CW:0},${CH-10-(v-lo)/rg*(CH-20)}`).join(' ');
+ $('#curve').innerHTML=pts.length>1?`<svg viewBox="0 0 ${CW} ${CH}" preserveAspectRatio="none" style="width:100%;height:200px"><polyline points="${xy}" fill="none" stroke="var(--pr)" stroke-width="3" vector-effect="non-scaling-stroke"/></svg><div class="hint">${m(S.start)} → ${m(s.bal)}</div>`:'<div class="empty">Add trades to see your balance curve</div>';
+}
+const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('#f').date.valueAsDate=new Date();
+
+// ===== Supabase config: paste your values =====
+const SUPABASE_URL='YOUR_SUPABASE_URL';          // e.g. https://abcdxyz.supabase.co
+const SUPABASE_ANON_KEY='YOUR_SUPABASE_ANON_KEY'; // the anon / publishable key (NOT service_role)
+// ===============================================
+const sb=SUPABASE_URL.startsWith('http')?supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
+let U=null,signup=false,tmr;
+const fromRow=r=>({id:r.id,date:r.trade_date,ticker:r.ticker,side:r.side,strategy:r.strategy||'',entry:+r.entry_price,exit:+r.exit_price,stop:+r.stop_loss,shares:+r.shares,fees:+r.fees||0,ovr:r.pnl_override==null?'':+r.pnl_override});
+const err=e=>say('Error: '+(e.message||e));
+function showAuth(msg){U=null;S={start:10000,trades:[]};$('#app').hidden=true;$('#auth').hidden=false;$('#aMsg').textContent=msg||''}
+async function enter(user){
+ U=user;$('#auth').hidden=true;$('#app').hidden=false;
+ const [t,st]=await Promise.all([sb.from('trades').select('*').order('trade_date'),sb.from('settings').select('start_balance').maybeSingle()]);
+ if(t.error)return err(t.error);
+ S.trades=t.data.map(fromRow);S.start=st.data?+st.data.start_balance:10000;render();
+}
+async function boot(){
+ if(!sb)return showAuth('Add your Supabase URL and anon key at the top of the script in index.html.');
+ const{data:{session}}=await sb.auth.getSession();
+ session?enter(session.user):showAuth();
+}
+$('#sw').onclick=()=>{signup=!signup;$('#aTitle').textContent=signup?'Sign up':'Sign in';$('#go').textContent=signup?'Create account':'Sign in';$('#aAsk').textContent=signup?'Have an account?':'No account?';$('#sw').textContent=signup?'Sign in':'Sign up';$('#aMsg').textContent=''};
+$('#go').onclick=async()=>{
+ if(!sb)return;const email=$('#em').value.trim(),password=$('#pw').value;
+ if(!email||password.length<6)return $('#aMsg').textContent='Enter an email and a password of 6+ characters.';
+ $('#aMsg').textContent='Please wait…';
+ const r=signup?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
+ if(r.error)return $('#aMsg').textContent=r.error.message;
+ if(r.data.session)enter(r.data.user);
+ else $('#aMsg').textContent='Account created. Check your email to confirm, then sign in.';
+};
+$('#pw').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
+$('#out').onclick=async()=>{await sb.auth.signOut();showAuth()};
+$('#f').onsubmit=async e=>{e.preventDefault();const f=e.target,v=n=>f[n].value;
+ const row={trade_date:v('date'),ticker:v('ticker').toUpperCase().trim(),side:v('side'),strategy:v('strategy'),entry_price:+v('entry'),exit_price:+v('exit'),stop_loss:+v('stop'),shares:+v('shares'),fees:+v('fees')||0,pnl_override:v('ovr')===''?null:+v('ovr'),user_id:U.id};
+ const{data,error}=await sb.from('trades').insert(row).select().single();
+ if(error)return err(error);
+ S.trades.push(fromRow(data));f.reset();f.date.valueAsDate=new Date();render()};
+$('#start').oninput=e=>{S.start=+e.target.value||0;render();clearTimeout(tmr);
+ tmr=setTimeout(async()=>{const{error}=await sb.from('settings').upsert({user_id:U.id,start_balance:S.start},{onConflict:'user_id'});if(error)err(error)},600)};
+$('#tb').onclick=async e=>{const id=e.target.dataset.id;if(id&&confirm('Delete this trade?')){
+ const{error}=await sb.from('trades').delete().eq('id',id);if(error)return err(error);
+ S.trades=S.trades.filter(t=>String(t.id)!==id);render()}};
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));$('#log').hidden=b.dataset.t!=='log';$('#dash').hidden=b.dataset.t!=='dash'});
+let DL=null;
+(async()=>{try{DL=await window.claude.use('downloads')}catch(e){}
+ if(!DL)DL={save:async({filename,data})=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data]));a.download=filename;document.body.appendChild(a);a.click();a.remove()}}})();
+const say=t=>{$('#msg').textContent=t;setTimeout(()=>$('#msg').textContent='',4000)};
+async function dl(name,data){try{await DL.save({filename:name,data});say('Saved '+name)}catch(e){say(e.code==='declined'?'Download cancelled.':'Download failed: '+(e.message||e.code))}}
+$('#xl').onclick=()=>{const s=stats();
+ const rows=s.T.map(t=>({Date:t.date,Ticker:t.ticker,Side:t.side,Strategy:t.strategy,Entry:t.entry,Exit:t.exit,'Stop Loss':t.stop,Shares:t.shares,Fees:t.fees,'Net P&L':t.pnl,'R:R':+t.rr.toFixed(2),Result:t.res}));
+ let b=S.start;const run=s.T.map(t=>({Date:t.date,Ticker:t.ticker,'Net P&L':t.pnl,'Account Balance':+(b+=t.pnl).toFixed(2)}));
+ const d=[['Metric','Value'],['Starting balance',S.start],['Account balance',+s.bal.toFixed(2)],['Total trades',s.T.length],['Wins',s.w],['Losses',s.l],['Win rate %',+s.wr.toFixed(1)],['Net P&L',+s.net.toFixed(2)],['Profit factor',s.pf===Infinity?'Inf':+s.pf.toFixed(2)],['Return %',+(S.start?s.net/S.start*100:0).toFixed(2)],['Expectancy ratio (R)',+s.expR.toFixed(2)],['Expectancy per trade',+s.exp.toFixed(2)]];
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(d),'Dashboard');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Journal');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(run),'Balance History');
+ dl('trade-journal.xlsx',XLSX.write(wb,{type:'array',bookType:'xlsx'}))};
+$('#pf').onclick=()=>{const s=stats(),doc=new window.jspdf.jsPDF({orientation:'landscape'});
+ doc.setFontSize(18);doc.text('Trade Journal',14,16);doc.setFontSize(10);
+ doc.text(`Starting balance: ${m(S.start)}   Account balance: ${m(s.bal)}   Net P&L: ${sm(s.net)}`,14,24);
+ doc.text(`Trades: ${s.T.length}   Win rate: ${s.wr.toFixed(0)}% (${s.w}W / ${s.l}L)   Profit factor: ${s.pf===Infinity?'Inf':s.pf.toFixed(2)}   Expectancy: ${sm(s.exp)}/trade (${s.expR.toFixed(2)}R)`,14,30);
+ doc.autoTable({startY:36,head:[['Date','Ticker','Side','Strategy','Entry','Exit','Stop','Shares','Net P&L','R:R','Result']],body:s.T.map(t=>[t.date,t.ticker,t.side,t.strategy,m(t.entry),m(t.exit),m(t.stop),t.shares,sm(t.pnl),t.rr.toFixed(2),t.res]),headStyles:{fillColor:[124,58,237]},styles:{fontSize:9}});
+ dl('trade-journal.pdf',doc.output('arraybuffer'))};
+render();boot();
+</script></body></html>
