@@ -133,8 +133,8 @@ const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 $('#f').date.valueAsDate=new Date();
 
 // ===== Supabase config: paste your values =====
-const SUPABASE_URL='YOUR_SUPABASE_URL';          // e.g. https://abcdxyz.supabase.co
-const SUPABASE_ANON_KEY='YOUR_SUPABASE_ANON_KEY'; // the anon / publishable key (NOT service_role)
+const SUPABASE_URL='sb_publishable_QjEYHPU7EjvMrUD4g6wVsA_PVUTnRgU';          // e.g. https://abcdxyz.supabase.co
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcmxnc25zenRndGpzamNiYXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE2NDYyNzcsImV4cCI6MjEwNzIyMjI3N30.FNActX_4YUOW6LQj1AVBsLYJT8Xb_X0huQTyi6lISKI'; // the anon / publishable key (NOT service_role)
 // ===============================================
 const sb=SUPABASE_URL.startsWith('http')?supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
 let U=null,signup=false,tmr;
