@@ -1,162 +1,475 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#09090b">
 <title>Trade Journal</title>
+<script>(function(){var t=null;try{t=localStorage.getItem('tj_theme')}catch(e){}document.documentElement.dataset.theme=t||'dark'})()</script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
-:root{--bg:#f3f4f6;--card:#f9fafb;--surf:#fff;--tx:#111827;--mut:#6b7280;--bd:#e5e7eb;--pr:#7c3aed;--g:#10b981;--r:#ef4444;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1117;--card:#1a1d27;--surf:#14161e;--tx:#f3f4f6;--mut:#9ca3af;--bd:#2b2f3b;--pr:#a78bfa}}
-:root[data-theme="dark"]{--bg:#0f1117;--card:#1a1d27;--surf:#14161e;--tx:#f3f4f6;--mut:#9ca3af;--bd:#2b2f3b;--pr:#a78bfa}
-html{scroll-padding-top:env(safe-area-inset-top,0px)}
+:root{--bg:#09090b;--pn:#101012;--pn2:#161618;--bd:#222226;--tx:#ededee;--mut:#80808a;--g:#1fc98b;--gs:rgba(31,201,139,.12);--r:#f0524f;--rs:rgba(240,82,79,.12);--ac:#1fc98b;--act:#1c1c20;--pb:#ededee;--pt:#09090b;--ov:rgba(0,0,0,.6);color-scheme:dark}
+:root[data-theme=light]{--bg:#f4f4f5;--pn:#fff;--pn2:#fafafa;--bd:#e4e4e7;--tx:#18181b;--mut:#71717a;--g:#059669;--gs:rgba(5,150,105,.1);--r:#dc2626;--rs:rgba(220,38,38,.09);--ac:#059669;--act:#eeeef0;--pb:#18181b;--pt:#fff;--ov:rgba(0,0,0,.35);color-scheme:light}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.4 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
-.wrap{max-width:1100px;margin:0 auto;padding:12px}
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--bd);margin-bottom:16px;flex-wrap:wrap;align-items:center}
-.tab{padding:12px 20px;font-weight:600;color:var(--mut);cursor:pointer;border:0;background:none;border-bottom:2px solid transparent;font-size:15px}
-.tab.on{color:var(--pr);border-color:var(--pr)}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.5 "JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer}
+svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.pos{color:var(--g)}.neg{color:var(--r)}.mut{color:var(--mut)}
+.lab{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);font-weight:500}
+body.ro .own,.vo{display:none!important}body.ro .vo{display:inline-flex!important}
+
+/* layout */
+.shell{display:flex;min-height:100vh}
+.side{width:236px;flex:none;background:var(--pn);border-right:1px solid var(--bd);display:flex;flex-direction:column;padding:18px 12px;position:sticky;top:0;height:100vh;overflow:auto;z-index:40}
+.main{flex:1;min-width:0}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 18px;font-weight:700;font-size:15px}
+.logo{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;border:1.5px solid var(--ac);color:var(--ac)}
+.sec{margin:16px 8px 6px}
+.nav{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;border-radius:8px;background:none;color:var(--mut);text-align:left}
+.nav:hover{color:var(--tx);background:var(--act)}.nav.on{background:var(--act);color:var(--tx)}
+.nav.sub{padding-left:36px}
 .sp{flex:1}
-.panel{background:var(--surf);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:16px}
-.grid{display:grid;gap:12px}
-.g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
-.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
-.stat{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;text-align:center}
-.stat small{display:block;color:var(--mut);font-weight:600;letter-spacing:.06em;font-size:11px;text-transform:uppercase}
-.stat b{display:block;font-size:24px;margin-top:8px}
-.pos{color:var(--g)}.neg{color:var(--r)}
-h3{margin:0 0 12px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--pr);text-align:center}
-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;align-items:end}
-label{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;display:block}
-textarea{width:100%;margin-top:4px;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);color:var(--tx);font:inherit;resize:vertical}
-td.nt{white-space:normal;min-width:220px;max-width:340px}
-input,select{width:100%;margin-top:4px;padding:8px;border:1px solid var(--bd);border-radius:8px;background:var(--surf);color:var(--tx);font:inherit}
-button.b{padding:9px 14px;border:0;border-radius:8px;background:var(--pr);color:#fff;font-weight:600;cursor:pointer;font:inherit;font-weight:600}
-button.o{background:none;border:1px solid var(--bd);color:var(--tx)}
-.acct{display:flex;gap:16px;flex-wrap:wrap;align-items:end;justify-content:space-between}
-.acct .big{font-size:28px;font-weight:700}
+.usr{border-top:1px solid var(--bd);padding-top:12px;margin-top:12px;display:grid;gap:8px}
+.usr small{color:var(--mut);word-break:break-all;padding:0 8px}
+.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:12px 24px;padding-top:calc(12px + env(safe-area-inset-top,0px));background:var(--bg);border-bottom:1px solid var(--bd)}
+.top h1{margin:0;font-size:14px;font-weight:600;flex:1}
+.burger{display:none}
+.wrap{padding:18px 24px 40px;max-width:1280px;margin:0 auto}
+.ov{display:none}
+
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--pn);color:var(--tx);white-space:nowrap;transition:.12s}
+.btn:hover{border-color:var(--mut)}
+.btn.p{background:var(--pb);color:var(--pt);border-color:var(--pb);font-weight:600}
+.btn.sm{padding:6px 10px;font-size:12px}
+.seg{display:inline-flex;padding:3px;gap:2px;background:var(--pn);border:1px solid var(--bd);border-radius:10px}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:7px;color:var(--mut)}
+.seg button.on{background:var(--pb);color:var(--pt);font-weight:600}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.bar .sp{flex:1}
+.pnav{display:inline-flex;align-items:center;gap:6px}
+.plabel{min-width:150px;text-align:center;font-weight:600}
+input,select,textarea{width:100%;margin-top:6px;padding:9px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--pn2);color:var(--tx);font:inherit;outline:0}
+input:focus,select:focus,textarea:focus{border-color:var(--ac)}
+textarea{resize:vertical}
+
+/* panels & kpis */
+.pn{background:var(--pn);border:1px solid var(--bd);border-radius:12px;margin-bottom:14px;overflow:hidden}
+.pn>header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--bd)}
+.kp{background:var(--pn);border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.kp .in{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));margin:0 -1px -1px 0}
+.kp .in>div{padding:16px;min-width:0;border-right:1px solid var(--bd);border-bottom:1px solid var(--bd)}
+.kp .v{font-size:26px;font-weight:600;letter-spacing:-.02em;margin:6px 0 2px;line-height:1.15}
+.kp .s{color:var(--mut);font-size:12px}
+.mini{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-top:6px}
+.bb{height:4px;border-radius:4px;background:var(--bd);overflow:hidden;display:flex;margin-top:10px}
+.bb i{display:block;height:100%}
+.sp1{width:100%;height:64px;margin-top:8px;display:block}
+.nodata{height:64px;display:grid;place-items:center;color:var(--mut);margin-top:8px}
+.acct input{margin:6px 0 0;max-width:180px;font-size:15px;font-weight:600}
+
+/* calendar */
+.cal{margin:0 -1px -1px 0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) minmax(70px,.9fr);}
+.ch{padding:10px 6px;text-align:center;border-bottom:1px solid var(--bd);color:var(--mut);font-size:11px}
+.cd{min-height:84px;padding:6px 8px;border-right:1px solid var(--bd);border-bottom:1px solid var(--bd);text-align:center;display:flex;flex-direction:column;gap:3px;background:none;border-top:0;border-left:0;color:inherit;font:inherit}
+button.cd:hover{background:var(--act)}
+.cd .dn{text-align:right;font-size:12px;color:var(--mut)}
+.cd .amt{font-weight:600;font-size:12px}.cd .ct{color:var(--mut);font-size:10px}
+.cd.today{outline:1.5px solid var(--tx);outline-offset:-2px}
+.cd.w{background:var(--pn2);justify-content:center}
+.cd .sh{display:none}
+.cd.off{background:var(--pn2);opacity:.45}
+
+/* table */
 .scroll{overflow-x:auto}
-table{width:100%;border-collapse:collapse;min-width:760px}
-th{text-align:left;font-size:11px;color:var(--mut);letter-spacing:.06em;padding:12px 8px;background:var(--card)}
-td{padding:12px 8px;border-bottom:1px solid var(--bd);white-space:nowrap}
-.del{background:none;border:0;color:var(--mut);cursor:pointer;font-size:16px}
-.empty{text-align:center;color:var(--mut);padding:30px}
-.hint{font-size:12px;color:var(--mut);margin-top:8px}
-svg{max-width:100%}
-#auth{max-width:380px;margin:10vh auto;padding:12px}#auth .panel{display:grid;gap:12px}#aMsg{color:var(--r);font-size:13px}#auth h2{margin:0}.lnk{background:none;border:0;color:var(--pr);cursor:pointer;font:inherit;padding:0}
+.tbl{width:100%;border-collapse:collapse;min-width:1000px}
+.tbl th{text-align:left;font-size:10px;letter-spacing:.12em;color:var(--mut);padding:11px 12px;font-weight:500;border-bottom:1px solid var(--bd);white-space:nowrap}
+.tbl td{padding:11px 12px;border-bottom:1px solid var(--bd);white-space:nowrap}
+.tbl tr.tr:hover td{background:var(--pn2)}.tbl tr.sel td{background:var(--act)}
+.tbl tr.wk td{padding:0;border:0}
+.wkb{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 12px;background:var(--pn2);border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);border-left:3px solid var(--ac)}
+.wkb b:first-child{color:var(--ac)}
+.tbl td.nt{white-space:normal;min-width:180px;max-width:300px;color:var(--mut)}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.Long,.Win{background:var(--gs);color:var(--g)}.Short,.Loss{background:var(--rs);color:var(--r)}.Breakeven{background:var(--act);color:var(--mut)}
+.ib{background:none;border:0;padding:5px;border-radius:6px;color:var(--mut)}.ib:hover{background:var(--act);color:var(--tx)}
+.empty{text-align:center;color:var(--mut);padding:40px 12px}
+.banner{padding:10px 14px;border-radius:10px;background:var(--rs);color:var(--r);margin-bottom:14px}
+
+/* dialogs / form / auth / toast */
+dialog{border:1px solid var(--bd);border-radius:14px;background:var(--pn);color:var(--tx);padding:20px;width:min(560px,calc(100% - 24px));max-height:92vh;overflow:auto}
+dialog::backdrop{background:var(--ov)}
+dialog h3{margin:0 0 14px;font-size:15px}
+.fg{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.full{grid-column:1/-1}.row{display:flex;gap:8px;flex-wrap:wrap}
+.chk{display:flex;gap:10px;align-items:center;margin:12px 0;color:var(--tx);font-size:13px}.chk input{width:auto;margin:0}
+#auth{max-width:400px;margin:10vh auto;padding:16px}#auth .pn{padding:22px;display:grid;gap:14px;overflow:visible}
+#aMsg{color:var(--r);font-size:12px}.lnk{background:none;border:0;color:var(--ac);padding:0;font-weight:600}
+.fab{position:fixed;top:12px;right:12px;z-index:60}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--pb);color:var(--pt);padding:10px 16px;border-radius:10px;font-weight:600;z-index:90;opacity:0;pointer-events:none;transition:.2s;max-width:90vw}
+#toast.on{opacity:1}#toast.bad{background:var(--r);color:#fff}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--g);animation:p 1.6s infinite;display:inline-block}@keyframes p{50%{opacity:.25}}
+.badge{align-items:center;gap:7px;padding:5px 10px;border-radius:99px;background:var(--gs);color:var(--g);font-size:11px}
+
+/* responsive */
+@media(max-width:1023px){
+ .side{position:fixed;left:0;top:0;transform:translateX(-100%);transition:.2s;width:260px}
+ body.nav-open .side{transform:none}
+ body.nav-open .ov{display:block;position:fixed;inset:0;background:var(--ov);z-index:35}
+ .burger{display:inline-flex}
+ .top,.wrap{padding-left:16px;padding-right:16px}
+}
+@media(max-width:720px){
+ .bar{gap:8px}.bar .sp{display:none}
+ .bar>*{max-width:100%}
+ .seg{width:100%}.seg button{flex:1;padding:7px 4px}
+ .pnav{width:100%;justify-content:space-between}
+ .plabel{flex:1;min-width:0}
+ .kp .v{font-size:22px}
+ .scroll{overflow:visible}
+ .tbl{min-width:0}.tbl thead{display:none}.tbl,.tbl tbody{display:block}
+ .tbl tr.tr{display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;padding:12px;margin:0 10px 10px;border:1px solid var(--bd);border-radius:10px;background:var(--pn2)}
+ .tbl tr.tr:hover td,.tbl tr.sel td{background:none}
+ .tbl td{display:flex;justify-content:space-between;gap:8px;border:0;padding:3px 0;white-space:normal}
+ .tbl td::before{content:attr(data-l);color:var(--mut);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+ .tbl td.nt,.tbl td.act{grid-column:1/-1;max-width:none}
+ .tbl td.act{justify-content:flex-end}.tbl td.act::before{display:none}
+ .tbl tr.wk{display:block;margin:12px 0 8px}
+ .cd{min-height:58px;padding:4px 3px}.cd .dn{font-size:10px}.cd .amt{font-size:10px}.cd .ct{display:none}
+ .cd .lg{display:none}.cd .sh{display:inline}
+ .cal{grid-template-columns:repeat(7,minmax(0,1fr)) minmax(46px,.9fr)}
+ .ch{font-size:9px;padding:8px 2px}
+ .top h1{font-size:13px}
+}
+@media(min-width:721px){.tbl td::before{display:none}}
 </style></head><body>
-<div id="auth" hidden><div class="panel"><h2 id="aTitle">Sign in</h2>
- <div><label>Email</label><input id="em" type="email" autocomplete="email"></div>
- <div><label>Password</label><input id="pw" type="password" autocomplete="current-password" minlength="6"></div>
- <button class="b" id="go">Sign in</button>
- <div class="hint" id="aMsg"></div>
- <div class="hint"><span id="aAsk">No account?</span> <button class="lnk" id="sw">Sign up</button></div>
+
+<button class="btn icon fab" id="th2" title="Toggle theme"></button>
+<div id="auth" hidden><div class="pn">
+ <div class="brand" style="padding:0"><span class="logo" data-ic="logo"></span><span id="aTitle">Sign in</span></div>
+ <div class="mut">Your private trade journal</div>
+ <div><span class="lab">Email</span><input id="em" type="email" autocomplete="email"></div>
+ <div><span class="lab">Password</span><input id="pw" type="password" autocomplete="current-password" minlength="6"></div>
+ <button class="btn p" id="go">Sign in</button>
+ <div id="aMsg"></div>
+ <div class="mut"><span id="aAsk">No account?</span> <button class="lnk" id="sw">Sign up</button></div>
 </div></div>
-<div class="wrap" id="app" hidden>
-<div class="tabs"><button class="tab on" data-t="log">Trade Log</button><button class="tab" data-t="dash">Dashboard</button><span class="sp"></span>
-<button class="b o" id="xl">⬇ Excel</button>&nbsp;<button class="b o" id="pf">⬇ PDF</button>&nbsp;<button class="b o" id="out">Sign out</button></div>
 
-<div id="log">
- <div class="panel acct">
-  <div><label>Starting balance ($)</label><input id="start" type="number" step="0.01" style="width:170px"></div>
-  <div><label>Net P&amp;L</label><div class="big" id="aPnl">$0.00</div></div>
-  <div><label>Account balance</label><div class="big" id="aBal">$0.00</div></div>
+<div class="shell" id="app" hidden>
+ <aside class="side">
+  <div class="brand"><span class="logo" data-ic="logo"></span>Trade Journal</div>
+  <div class="sec lab">Journaling</div>
+  <button class="nav on" data-view="dash"><span data-ic="dash"></span>Dashboard</button>
+  <button class="nav" data-view="trades"><span data-ic="list"></span>Trades</button>
+  <div class="sec lab">Periodic logs</div>
+  <button class="nav sub" data-mode="day"><span data-ic="day"></span>Daily</button>
+  <button class="nav sub" data-mode="week"><span data-ic="cal"></span>Weekly</button>
+  <button class="nav sub" data-mode="month"><span data-ic="cal"></span>Monthly</button>
+  <div class="sp"></div>
+  <div class="usr">
+   <small id="who"></small>
+   <button class="btn sm" id="th"></button>
+   <button class="btn sm own" id="out">Sign out</button>
+  </div>
+ </aside>
+ <div class="ov" id="ov"></div>
+ <div class="main">
+  <div class="top">
+   <button class="btn sm burger" id="burger" aria-label="Menu"><span data-ic="menu"></span></button>
+   <h1 id="title">Journaling Dashboard</h1>
+   <span class="badge vo"><i class="dot"></i> View only · Live <span id="upd"></span></span>
+  </div>
+  <div class="wrap">
+   <div id="banner" class="banner" hidden></div>
+   <div class="bar">
+    <div class="seg" id="mseg"><button data-m="all">All</button><button data-m="day">Day</button><button data-m="week">Week</button><button data-m="month">Month</button></div>
+    <div class="pnav" id="pnav"><button class="btn sm" id="pp" aria-label="Previous">‹</button><span class="plabel" id="plabel"></span><button class="btn sm" id="pn" aria-label="Next">›</button><button class="btn sm" id="pt">Latest</button></div>
+    <span class="sp"></span>
+    <button class="btn sm" id="xl"><span data-ic="dl"></span>Excel</button>
+    <button class="btn sm" id="pf"><span data-ic="dl"></span>PDF</button>
+    <button class="btn sm own" id="shBtn"><span data-ic="link"></span>Share</button>
+    <button class="btn sm p own" id="newBtn">+ New trade</button>
+   </div>
+
+   <section id="dash"></section>
+   <section id="trades" hidden></section>
+  </div>
  </div>
- <div class="panel">
-  <form id="f">
-   <div><label>Date</label><input name="date" type="date" required></div>
-   <div><label>Ticker</label><input name="ticker" required placeholder="AAPL"></div>
-   <div><label>Side</label><select name="side"><option>Long</option><option>Short</option></select></div>
-   <div><label>Strategy</label><input name="strategy" placeholder="Breakout"></div>
-   <div><label>Entry</label><input name="entry" type="number" step="any" required></div>
-   <div><label>Exit</label><input name="exit" type="number" step="any" required></div>
-   <div><label>Stop loss</label><input name="stop" type="number" step="any" required></div>
-   <div><label>Shares</label><input name="shares" type="number" step="any" required></div>
-   <div><label>Fees ($)</label><input name="fees" type="number" step="any" value="0"></div>
-   <div><label>P&amp;L override</label><input name="ovr" type="number" step="any" placeholder="optional"></div>
-   <div style="grid-column:1/-1"><label>Notes / thoughts (why you took it, how you felt, what to improve)</label><textarea name="notes" rows="2" placeholder="Write your journal caption here…"></textarea></div>
-   <button class="b" type="submit">Add trade</button>
-  </form>
-  <div class="hint">P&amp;L, R:R, result and account balance are calculated automatically from entry, exit, shares and fees. Use “P&amp;L override” only if you want to type the exact profit/loss (e.g. -67.50). Data is saved to your Supabase database.</div>
- </div>
- <div class="panel scroll"><table><thead><tr><th>DATE<th>TICKER<th>SIDE<th>STRATEGY<th>ENTRY<th>EXIT<th>STOP LOSS<th>SHARES<th>NET P&amp;L<th>R:R<th>RESULT<th>NOTES<th></tr></thead><tbody id="tb"></tbody></table></div>
 </div>
 
-<div id="dash" hidden>
- <div class="grid g4" id="stats" style="margin-bottom:16px"></div>
- <div class="grid g2">
-  <div class="panel"><h3>P&amp;L per trade</h3><div id="bars"></div></div>
-  <div class="panel"><h3>Win / Loss breakdown</h3><div id="donut" style="text-align:center"></div></div>
+<dialog id="fd">
+ <h3 id="fTitle">New trade</h3>
+ <form id="f" class="fg">
+  <div><span class="lab">Date</span><input name="date" type="date" required></div>
+  <div><span class="lab">Ticker</span><input name="ticker" required placeholder="AAPL"></div>
+  <div><span class="lab">Side</span><select name="side"><option>Long</option><option>Short</option></select></div>
+  <div><span class="lab">Strategy</span><input name="strategy" placeholder="Breakout"></div>
+  <div><span class="lab">Entry</span><input name="entry" type="number" step="any" required></div>
+  <div><span class="lab">Exit</span><input name="exit" type="number" step="any" required></div>
+  <div><span class="lab">Stop loss</span><input name="stop" type="number" step="any" required></div>
+  <div><span class="lab">Shares</span><input name="shares" type="number" step="any" required></div>
+  <div><span class="lab">Fees ($)</span><input name="fees" type="number" step="any" value="0"></div>
+  <div><span class="lab">P&amp;L override</span><input name="ovr" type="number" step="any" placeholder="optional"></div>
+  <div class="full"><span class="lab">Notes / thoughts</span><textarea name="notes" rows="3" placeholder="Why you took it, how you felt, what to improve…"></textarea></div>
+  <div class="full mut" style="font-size:11px">P&amp;L, R:R and result are calculated automatically. Use override only to type an exact amount.</div>
+  <div class="full row" style="justify-content:flex-end"><button type="button" class="btn" id="fCancel">Cancel</button><button class="btn p" type="submit" id="fBtn">Add trade</button></div>
+ </form>
+</dialog>
+
+<dialog id="sh">
+ <h3>Share your journal</h3>
+ <p class="mut" style="margin-top:0">Anyone with the link can view your journal read-only. It updates live when you add or edit trades.</p>
+ <label class="chk"><input type="checkbox" id="shOn"> Enable public link</label>
+ <div id="shBox" hidden>
+  <div id="shWarn" class="banner" hidden style="font-size:12px">You opened the app from your computer (a file:// address), so a public link can't be made yet. Put the app online (e.g. Netlify) and type its website address below.</div>
+  <span class="lab">Your share link</span>
+  <div class="row" style="flex-wrap:nowrap"><input id="shLink" readonly><button class="btn" id="shCopy" style="margin-top:6px">Copy</button></div>
+  <div style="margin-top:16px"><span class="lab">Custom link name</span>
+   <div class="mut" id="shPre" style="font-size:11px;margin-top:6px;word-break:break-all"></div>
+   <div class="row" style="flex-wrap:nowrap"><input id="shSlug" placeholder="view-journal" maxlength="40" autocapitalize="off" spellcheck="false"><button class="btn" id="shSave" style="margin-top:6px">Save</button></div>
+   <div class="mut" style="font-size:11px;margin-top:6px">3–40 characters: letters, numbers, hyphens. A simple name can be guessed, so add a random ending for safety.</div>
+   <div class="row" style="margin-top:8px"><button class="btn sm" id="shRnd">+ Add random ending</button><button class="btn sm" id="shClr">Use random link instead</button></div>
+  </div>
+  <div style="margin-top:16px"><span class="lab">Your public website address</span>
+   <div class="row" style="flex-wrap:nowrap"><input id="shUrl" placeholder="https://my-journal.netlify.app" autocapitalize="off" spellcheck="false"><button class="btn" id="shUrlSave" style="margin-top:6px">Save</button></div>
+   <div class="mut" style="font-size:11px;margin-top:6px">Where you deployed this app. Share links are built from it. Saved in this browser.</div></div>
+  <label class="chk"><input type="checkbox" id="shNotes"> Show my notes in the shared view</label>
+  <button class="btn sm" id="shNew">Generate new random link (old random link stops working)</button>
  </div>
- <div class="panel"><h3>Account balance curve</h3><div id="curve"></div></div>
-</div>
-<div class="hint" id="msg"></div>
-</div>
+ <div class="row" style="justify-content:flex-end;margin-top:16px"><button class="btn" id="shClose">Close</button></div>
+</dialog>
+<div id="toast"></div>
+
 <script>
-const $=s=>document.querySelector(s),KEY='tj_v1';
-let S={start:10000,trades:[]};
+const $=s=>document.querySelector(s);
+// ===== Supabase config =====
+const SUPABASE_URL='https://vdrlgsnsztgtjsjcbawj.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_QjEYHPU7EjvMrUD4g6wVsA_PVUTnRgU';
+// Optional: your public website address, e.g. 'https://my-journal.netlify.app'.
+// Share links always use it (even when you open the app from your computer).
+const PUBLIC_URL='';
+// ===========================
+let sb=null,cfgMsg='';
+if(!/^https?:\/\//.test(SUPABASE_URL.trim())||SUPABASE_ANON_KEY.startsWith('YOUR_'))cfgMsg='Setup needed: paste your Supabase URL and key at the top of the script in index.html.';
+else if(!window.supabase)cfgMsg='The Supabase library failed to load (internet or ad-blocker?). Reload the page.';
+else{try{sb=window.supabase.createClient(SUPABASE_URL.trim().replace(/\/+$/,'').replace(/\/(rest|auth)\/v1.*$/,''),SUPABASE_ANON_KEY.trim())}catch(e){cfgMsg='Invalid Supabase settings: '+e.message}}
+const _seg=location.pathname.split('/').filter(Boolean),_last=_seg[_seg.length-1]||'';
+const SLUG=(!location.pathname.endsWith('/')&&_last&&!/\.[a-z0-9]+$/i.test(_last))?decodeURIComponent(_last).toLowerCase():null;
+const TOKEN=new URLSearchParams(location.search).get('view')||SLUG,RO=!!TOKEN;
+let S={start:10000,trades:[],share:{enabled:false,token:'',slug:'',show_notes:true}},U=null,signup=false,tmr,editId=null,sig='',view='dash';
+let P={mode:'all',anchor:null},calM=null;
+
+/* ---------- icons ---------- */
+const IC={logo:'<path d="M4 17l5-6 4 3 7-9"/><path d="M15 5h5v5"/>',dash:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',list:'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',cal:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',day:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/>',menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',dl:'<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',link:'<path d="M10 13a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 11a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/>',edit:'<path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>',trash:'<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'};
+const ic=n=>`<svg class="i" viewBox="0 0 24 24">${IC[n]}</svg>`;
+document.querySelectorAll('[data-ic]').forEach(e=>e.innerHTML=ic(e.dataset.ic));
+
+/* ---------- helpers ---------- */
+const pad=n=>String(n).padStart(2,'0');
 const m=n=>(n<0?'-':'')+'$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const sm=n=>(n>0?'+':'')+m(n);
+const kf=n=>(n>0?'+':n<0?'-':'')+(Math.abs(n)>=1000?(Math.abs(n)/1000).toFixed(1)+'k':Math.round(Math.abs(n)));
 const cls=n=>n>0?'pos':n<0?'neg':'';
+const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dfmt=s=>{const[y,mo,d]=s.split('-');return`${d}/${mo}/${y}`};
+const utc=s=>{const[y,mo,d]=s.split('-').map(Number);return new Date(Date.UTC(y,mo-1,d))};
+const iso=d=>d.toISOString().slice(0,10);
+const addDays=(s,n)=>iso(new Date(utc(s).getTime()+n*864e5));
+const addMonths=(s,n)=>{const d=utc(s);d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+n);return iso(d)};
+const fd=d=>`${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)}/${d.getUTCFullYear()}`;
+const today=()=>{const d=new Date();return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`};
+function wk(s){const d=utc(s),mon=new Date(d.getTime()-((d.getUTCDay()+6)%7)*864e5),fri=new Date(mon.getTime()+4*864e5);return{key:iso(mon),label:fd(mon)+' - '+fd(fri)}}
+let tt;function say(t,bad){const e=$('#toast');e.textContent=t;e.className='on'+(bad?' bad':'');clearTimeout(tt);tt=setTimeout(()=>e.className='',3500)}
+const err=e=>{let t=e.message||String(e);if(/schema cache|does not exist|relation|column|function/i.test(t))t+=' — run schema.sql in the Supabase SQL Editor.';say('Error: '+t,1)};
+
+/* ---------- theme ---------- */
+function setTheme(t){document.documentElement.dataset.theme=t;try{localStorage.setItem('tj_theme',t)}catch(e){}$('#th').textContent=t==='dark'?'☀ Light mode':'☾ Dark mode';$('#th2').textContent=t==='dark'?'☀':'☾'}
+const toggleTheme=()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+$('#th').onclick=$('#th2').onclick=toggleTheme;setTheme(document.documentElement.dataset.theme);
+
+/* ---------- calculations ---------- */
 function calc(t){
  const dir=t.side==='Long'?1:-1;
  const pnl=t.ovr!==''&&t.ovr!=null?+t.ovr:(t.exit-t.entry)*dir*t.shares-(t.fees||0);
  const risk=Math.abs(t.entry-t.stop),mv=(t.exit-t.entry)*dir;
- const rr=pnl>0&&risk>0?Math.abs(mv)/risk:0;
- return{...t,pnl:Math.round(pnl*100)/100,rr,res:pnl>0?'Win':pnl<0?'Loss':'Breakeven'};
+ return{...t,pnl:Math.round(pnl*100)/100,rr:pnl>0&&risk>0?Math.abs(mv)/risk:0,res:pnl>0?'Win':pnl<0?'Loss':'Breakeven'};
 }
-function stats(){
- const T=[...S.trades].sort((a,b)=>a.date.localeCompare(b.date)).map(calc);
- const w=T.filter(t=>t.pnl>0),l=T.filter(t=>t.pnl<0);
- const net=T.reduce((a,t)=>a+t.pnl,0),gp=w.reduce((a,t)=>a+t.pnl,0),gl=Math.abs(l.reduce((a,t)=>a+t.pnl,0));
- const n=T.length,aw=w.length?gp/w.length:0,al=l.length?gl/l.length:0,exp=n?(w.length/n)*aw-(l.length/n)*al:0;
- return{T,w:w.length,l:l.length,net,pf:gl?gp/gl:(gp?Infinity:0),wr:n?w.length/n*100:0,bal:S.start+net,exp,expR:al?exp/al:0};
+const enrich=()=>S.trades.map((t,i)=>({...calc(t),i,wk:wk(t.date)})).sort((a,b)=>a.date.localeCompare(b.date)||a.i-b.i);
+const sum=a=>a.reduce((x,y)=>x+y,0);
+function metrics(T){
+ const w=T.filter(t=>t.pnl>0),l=T.filter(t=>t.pnl<0),n=T.length;
+ const net=sum(T.map(t=>t.pnl)),gp=sum(w.map(t=>t.pnl)),gl=Math.abs(sum(l.map(t=>t.pnl)));
+ const aw=w.length?gp/w.length:0,al=l.length?gl/l.length:0,exp=n?(w.length/n)*aw-(l.length/n)*al:0;
+ let cum=0,peak=0,maxdd=0;const cu=[],dd=[];
+ T.forEach(t=>{cum+=t.pnl;cu.push(cum);peak=Math.max(peak,cum);const d=cum-peak;dd.push(d);maxdd=Math.min(maxdd,d)});
+ let bw=0,run=0;T.forEach(t=>{if(t.pnl>0){run++;bw=Math.max(bw,run)}else run=0});
+ let cw=0,cl=0;for(let i=n-1;i>=0&&T[i].pnl>0;i--)cw++;for(let i=n-1;i>=0&&T[i].pnl<0;i--)cl++;
+ const Lg=T.filter(t=>t.side==='Long'),Sh=T.filter(t=>t.side==='Short');
+ const W=new Map();T.forEach(t=>{let x=W.get(t.wk.key);if(!x){x={key:t.wk.key,label:t.wk.label,n:0,w:0,l:0,pnl:0};W.set(t.wk.key,x)}x.n++;x.pnl+=t.pnl;if(t.pnl>0)x.w++;if(t.pnl<0)x.l++});
+ return{T,W,weeks:[...W.values()].sort((a,b)=>a.key.localeCompare(b.key)),n,w:w.length,l:l.length,net,gp,gl,aw,al,pf:gl?gp/gl:(gp?Infinity:0),wr:n?w.length/n*100:0,exp,expR:al?exp/al:0,cu,dd,maxdd,cur:dd.length?dd[dd.length-1]:0,bw,cw,cl,lp:sum(Lg.map(t=>t.pnl)),sp:sum(Sh.map(t=>t.pnl)),ln:Lg.length,sn:Sh.length};
 }
-function render(){
- const s=stats();
- $('#start').value=S.start;
- $('#aPnl').textContent=sm(s.net);$('#aPnl').className='big '+cls(s.net);
- $('#aBal').textContent=m(s.bal);
- $('#tb').innerHTML=s.T.length?s.T.map(t=>`<tr><td>${t.date}<td>${esc(t.ticker)}<td>${t.side}<td>${esc(t.strategy)}<td>${m(t.entry)}<td>${m(t.exit)}<td>${m(t.stop)}<td>${t.shares}<td class="${cls(t.pnl)}"><b>${sm(t.pnl)}</b><td>${t.rr.toFixed(2)}<td><b>${t.res}</b>${noteCell(t)}<td><button class="del" data-id="${t.id}" title="Delete">✕</button></tr>`).join(''):'<tr><td colspan="13" class="empty">No trades yet — add your first trade above.</td></tr>';
- $('#stats').innerHTML=[['Total trades',s.T.length],['Win rate',s.wr.toFixed(0)+'%',s.wr>=50?'pos':'neg'],['Net P&L',sm(s.net),cls(s.net)],['Profit factor',s.pf===Infinity?'∞':s.pf.toFixed(2)],['Account balance',m(s.bal)],['Expectancy ratio',s.expR.toFixed(2)+'R',cls(s.exp)],['Expectancy / trade',sm(s.exp),cls(s.exp)],['Return',(S.start?s.net/S.start*100:0).toFixed(2)+'%',cls(s.net)]].map(x=>`<div class="stat"><small>${x[0]}</small><b class="${x[2]||''}">${x[1]}</b></div>`).join('');
- // bars
- const W=520,H=200,mx=Math.max(1,...s.T.map(t=>Math.abs(t.pnl))),bw=s.T.length?Math.min(30,(W-10)/s.T.length-4):10,mid=H/2;
- $('#bars').innerHTML=s.T.length?`<svg viewBox="0 0 ${W} ${H}"><line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--bd)"/>${s.T.map((t,i)=>{const h=Math.max(2,Math.abs(t.pnl)/mx*(mid-8));return`<rect x="${5+i*(bw+4)}" y="${t.pnl>=0?mid-h:mid}" width="${bw}" height="${h}" rx="3" fill="var(${t.pnl>=0?'--g':'--r'})"><title>${esc(t.ticker)} ${sm(t.pnl)}</title></rect>`}).join('')}</svg>`:'<div class="empty">No data</div>';
- // donut
- const n=s.T.length,C=2*Math.PI*45,wl=n?s.w/n*C:0;
- $('#donut').innerHTML=`<svg width="200" height="200" viewBox="0 0 120 120"><circle cx="60" cy="60" r="45" fill="none" stroke="${n?'var(--r)':'var(--bd)'}" stroke-width="20"/><circle cx="60" cy="60" r="45" fill="none" stroke="var(--g)" stroke-width="20" stroke-dasharray="${wl} ${C}" transform="rotate(-90 60 60)"/><text x="60" y="66" text-anchor="middle" font-size="16" font-weight="700" fill="var(--tx)">${s.wr.toFixed(0)}%</text></svg><div class="hint"><span class="pos">●</span> Wins (${s.w}) &nbsp; <span class="neg">●</span> Losses (${s.l})</div>`;
- // curve
- let b=S.start;const pts=[b,...s.T.map(t=>b+=t.pnl)];
- const lo=Math.min(...pts),hi=Math.max(...pts),rg=hi-lo||1,CW=1000,CH=200;
- const xy=pts.map((v,i)=>`${pts.length>1?i/(pts.length-1)*CW:0},${CH-10-(v-lo)/rg*(CH-20)}`).join(' ');
- $('#curve').innerHTML=pts.length>1?`<svg viewBox="0 0 ${CW} ${CH}" preserveAspectRatio="none" style="width:100%;height:200px"><polyline points="${xy}" fill="none" stroke="var(--pr)" stroke-width="3" vector-effect="non-scaling-stroke"/></svg><div class="hint">${m(S.start)} → ${m(s.bal)}</div>`:'<div class="empty">Add trades to see your balance curve</div>';
-}
-let editId=null;
-const noteCell=t=>editId===String(t.id)?`<td class="nt"><textarea id="ne" rows="3">${esc(t.notes)}</textarea><div style="margin-top:6px"><button class="b" data-save="${t.id}">Save</button> <button class="b o" data-cancel="1">Cancel</button></div>`:`<td class="nt">${esc(t.notes)||'<span style="color:var(--mut)">—</span>'} <button class="del" data-edit="${t.id}" title="Edit note">✎</button>`;
-const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-$('#f').elements.date.valueAsDate=new Date();
 
-// ===== Supabase config: paste your values =====
-const SUPABASE_URL='https://vdrlgsnsztgtjsjcbawj.supabase.co';          // e.g. https://abcdxyz.supabase.co
-const SUPABASE_ANON_KEY='sb_publishable_QjEYHPU7EjvMrUD4g6wVsA_PVUTnRgU'; // the anon / publishable key (NOT service_role)
-// ===============================================
-let sb=null,cfgMsg='';
-if(!/^https?:\/\//.test(SUPABASE_URL.trim())||SUPABASE_ANON_KEY.startsWith('YOUR_'))cfgMsg='Setup needed: paste your Supabase URL and anon key at the top of the <script> in index.html, then reload.';
-else if(!window.supabase)cfgMsg='The Supabase library failed to load (internet or ad-blocker?). Check the connection and reload.';
-else{try{sb=window.supabase.createClient(SUPABASE_URL.trim().replace(/\/+$/,'').replace(/\/(rest|auth)\/v1.*$/,''),SUPABASE_ANON_KEY.trim())}catch(e){cfgMsg='Invalid Supabase settings: '+e.message}}
-let U=null,signup=false,tmr;
+/* ---------- period filter ---------- */
+function range(){const a=P.anchor;
+ if(P.mode==='day')return[a,a];
+ if(P.mode==='week'){const mon=wk(a).key;return[mon,addDays(mon,6)]}
+ if(P.mode==='month'){const d=utc(a);return[iso(new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),1))),iso(new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)))]}
+ return null}
+function plabel(){const a=P.anchor;
+ if(P.mode==='day')return utc(a).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
+ if(P.mode==='week')return wk(a).label;
+ if(P.mode==='month')return utc(a).toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'});
+ return'All time'}
+const inRange=(r,t)=>!r||(t.date>=r[0]&&t.date<=r[1]);
+function shiftP(d){P.anchor=P.mode==='day'?addDays(P.anchor,d):P.mode==='week'?addDays(P.anchor,7*d):addMonths(P.anchor,d)}
+function latest(){const A=enrich();return A.length?A[A.length-1].date:today()}
+function ensureAnchor(){if(!P.anchor){P.anchor=latest();const d=utc(P.anchor);calM={y:d.getUTCFullYear(),m:d.getUTCMonth()}}}
+function setMode(md){ensureAnchor();P.mode=md;render()}
+function setView(v){view=v;render();scrollTo(0,0)}
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{setView(b.dataset.view);document.body.classList.remove('nav-open')});
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{ensureAnchor();P.mode=b.dataset.mode;setView('trades');document.body.classList.remove('nav-open')});
+document.querySelectorAll('#mseg button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+$('#pp').onclick=()=>{shiftP(-1);render()};$('#pn').onclick=()=>{shiftP(1);render()};
+$('#pt').onclick=()=>{P.anchor=latest();render()};
+$('#burger').onclick=()=>document.body.classList.add('nav-open');$('#ov').onclick=()=>document.body.classList.remove('nav-open');
+
+/* ---------- charts ---------- */
+function spark(v,id,c){
+ if(v.length<2)return'<div class="nodata">Not enough data</div>';
+ const lo=Math.min(...v),hi=Math.max(...v),rg=hi-lo||1,W=200,H=60;
+ const pts=v.map((y,i)=>[i/(v.length-1)*W,H-4-(y-lo)/rg*(H-8)]);
+ const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join('');
+ return`<svg class="sp1 ${c}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".3"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><path d="${d}L${W},${H}L0,${H}Z" fill="url(#${id})"/><path d="${d}" fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`}
+function minibars(v,lab){
+ if(!v.length)return'<div class="nodata">No trades</div>';
+ const W=200,H=60,mid=H/2,mx=Math.max(1,...v.map(Math.abs)),bw=(W/v.length)*.7,st=W/v.length;
+ return`<svg class="sp1" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" x2="${W}" y1="${mid}" y2="${mid}" stroke="var(--bd)" vector-effect="non-scaling-stroke"/>${v.map((x,i)=>{const h=Math.max(1.5,Math.abs(x)/mx*(mid-3));return`<rect x="${(i*st+(st-bw)/2).toFixed(1)}" y="${x>=0?mid-h:mid}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="1" fill="var(${x>=0?'--g':'--r'})"><title>${esc(lab[i])}: ${sm(x)}</title></rect>`}).join('')}</svg>`}
+
+/* ---------- views ---------- */
+function barPair(a,b){const t=(a+b)||1;return`<div class="bb"><i style="width:${a/t*100}%;background:var(--g)"></i><i style="width:${b/t*100}%;background:var(--r)"></i></div>`}
+function dashHTML(A,K,all){
+ const bal=S.start+all.net;
+ let b=S.start;const curve=[b,...A.map(t=>b+=t.pnl)];
+ const lw=Math.abs(K.lp),sw=Math.abs(K.sp);
+ return`
+ <div class="kp acct"><div class="in">
+  <div><div class="lab">Starting balance ($)</div><input id="start" type="number" step="0.01" value="${S.start}" ${RO?'disabled':''}></div>
+  <div><div class="lab">Account net P&amp;L</div><div class="v ${cls(all.net)}">${sm(all.net)}</div></div>
+  <div><div class="lab">Account balance</div><div class="v" id="balv">${m(bal)}</div></div>
+ </div></div>
+ <div class="kp"><div class="in">
+  <div><div class="lab">Win %</div><div class="v">${K.wr.toFixed(1)}%</div><div class="s">${K.w}W — ${K.l}L</div>${barPair(K.w,K.l)}<div class="mini"><span class="pos">${K.w} wins</span><span class="neg">${K.l} losses</span></div></div>
+  <div><div class="lab">Avg win / loss</div><div class="v">${K.al?(K.aw/K.al).toFixed(2):K.aw?'∞':'0.00'}</div><div class="s">Reward : risk per trade</div>${barPair(K.aw,K.al)}<div class="mini"><span class="pos">${m(K.aw)}</span><span class="neg">${m(K.al)}</span></div></div>
+  <div><div class="lab">Long vs short</div><div class="v ${cls(K.net)}">${sm(K.net)}</div><div class="s">Total P&amp;L</div>${barPair(lw,sw)}<div class="mini"><span>L · ${K.ln} <b class="${cls(K.lp)}">${sm(K.lp)}</b></span><span>S · ${K.sn} <b class="${cls(K.sp)}">${sm(K.sp)}</b></span></div></div>
+  <div><div class="lab">Max streaks</div><div class="v">${K.bw}</div><div class="s">Best win streak</div><div class="mini"><span class="mut">Consecutive wins</span><b class="pos">${K.cw}</b></div><div class="mini" style="margin-top:2px"><span class="mut">Consecutive losses</span><b class="neg">${K.cl}</b></div></div>
+  <div><div class="lab">Expectancy</div><div class="v ${cls(K.exp)}">${K.expR.toFixed(2)}R</div><div class="s">${sm(K.exp)} per trade</div><div class="mini"><span class="mut">Profit factor</span><b>${K.pf===Infinity?'∞':K.pf.toFixed(2)}</b></div><div class="mini" style="margin-top:2px"><span class="mut">Trades</span><b>${K.n}</b></div></div>
+ </div></div>
+ <div class="kp"><div class="in">
+  <div><div class="lab">Cumulative P&amp;L</div><div class="v ${cls(K.net)}">${sm(K.net)}</div>${spark(K.cu,'g1',K.net>=0?'pos':'neg')}</div>
+  <div><div class="lab">Drawdown</div><div class="v neg">${m(K.cur)}</div><div class="s">current · max ${m(K.maxdd)}</div>${spark(K.dd,'g2','neg')}</div>
+  <div><div class="lab">P&amp;L per trade</div><div class="v">${K.n} <span class="s">trades</span></div>${minibars(K.T.map(t=>t.pnl),K.T.map(t=>t.ticker+' '+dfmt(t.date)))}</div>
+  <div><div class="lab">Account balance curve</div><div class="v">${m(bal)}</div>${spark(curve,'g3',bal>=S.start?'pos':'neg')}</div>
+ </div></div>
+ ${calHTML(A)}`}
+function calHTML(A){
+ const{y,m:mo}=calM,first=new Date(Date.UTC(y,mo,1)),dim=new Date(Date.UTC(y,mo+1,0)).getUTCDate(),lead=(first.getUTCDay()+6)%7;
+ const by={};A.forEach(t=>{(by[t.date]=by[t.date]||[]).push(t)});
+ const total=Math.ceil((lead+dim)/7)*7,td=today();let cells='',rs=0,rn=0;
+ for(let i=0;i<total;i++){
+  const dn=i-lead+1;
+  if(dn<1||dn>dim)cells+='<div class="cd off"></div>';
+  else{const ds=`${y}-${pad(mo+1)}-${pad(dn)}`,L=by[ds];
+   if(L){const p=sum(L.map(t=>t.pnl));rs+=p;rn+=L.length;cells+=`<button class="cd ${ds===td?'today':''}" data-day="${ds}"><span class="dn">${dn}</span><span class="amt ${cls(p)}"><span class="lg">${sm(p)}</span><span class="sh">${kf(p)}</span></span><span class="ct">${L.length} trade${L.length>1?'s':''}</span></button>`}
+   else cells+=`<div class="cd ${ds===td?'today':''}"><span class="dn">${dn}</span></div>`}
+  if(i%7===6){cells+=`<div class="cd w">${rn?`<span class="amt ${cls(rs)}"><span class="lg">${sm(rs)}</span><span class="sh">${kf(rs)}</span></span><span class="ct">${rn} trade${rn>1?'s':''}</span>`:'<span class="mut">—</span>'}</div>`;rs=0;rn=0}}
+ const mn=first.toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'});
+ return`<div class="pn"><header><b>Journal Calendar</b><div class="pnav"><button class="btn sm" data-cm="-1">‹</button><span class="plabel">${mn}</span><button class="btn sm" data-cm="1">›</button></div></header>
+ <div class="cal">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun','Weekly'].map(x=>`<div class="ch">${x}</div>`).join('')}${cells}</div></div>`}
+function tradesHTML(K){
+ const rows=[];let last='';
+ [...K.T].reverse().forEach(t=>{
+  if(t.wk.key!==last){last=t.wk.key;const x=K.W.get(last);rows.push(`<tr class="wk"><td colspan="13"><div class="wkb"><b>Week ${x.label}</b><span class="mut">${x.n} trade${x.n>1?'s':''} · ${x.w}W / ${x.l}L · <b class="${cls(x.pnl)}">${sm(x.pnl)}</b></span></div></td></tr>`)}
+  rows.push(`<tr class="tr ${String(t.id)===editId?'sel':''}"><td data-l="Date">${dfmt(t.date)}<td data-l="Ticker"><b>${esc(t.ticker)}</b><td data-l="Side"><span class="pill ${t.side}">${t.side}</span><td data-l="Strategy">${esc(t.strategy)||'—'}<td data-l="Entry">${m(t.entry)}<td data-l="Exit">${m(t.exit)}<td data-l="Stop">${m(t.stop)}<td data-l="Shares">${t.shares}<td data-l="Net P&L" class="${cls(t.pnl)}"><b>${sm(t.pnl)}</b><td data-l="R:R">${t.rr.toFixed(2)}<td data-l="Result"><span class="pill ${t.res}">${t.res}</span><td class="nt" data-l="Notes">${esc(t.notes)||'—'}<td class="act own"><button class="ib" data-edit="${t.id}" title="Edit">${ic('edit')}</button><button class="ib" data-del="${t.id}" title="Delete">${ic('trash')}</button></tr>`)});
+ return`<div class="pn"><header><b>${plabel()}</b><span class="mut">${K.n} trade${K.n===1?'':'s'} · ${K.w}W / ${K.l}L · <b class="${cls(K.net)}">${sm(K.net)}</b></span></header>
+ <div class="scroll"><table class="tbl"><thead><tr><th>DATE<th>TICKER<th>SIDE<th>STRATEGY<th>ENTRY<th>EXIT<th>STOP LOSS<th>SHARES<th>NET P&amp;L<th>R:R<th>RESULT<th>NOTES<th></tr></thead><tbody>${rows.join('')||`<tr><td colspan="13" class="empty">No trades in this period${RO?'.':' — add one with “+ New trade”.'}</td></tr>`}</tbody></table></div></div>`}
+
+function render(){
+ ensureAnchor();
+ const A=enrich(),r=range(),F=A.filter(t=>inRange(r,t)),K=metrics(F),all=metrics(A);
+ $('#who').textContent=RO?'Shared journal':(U?U.email:'');
+ $('#title').textContent=view==='dash'?'Journaling Dashboard':'Trades — '+({all:'All time',day:'Daily log',week:'Weekly log',month:'Monthly log'}[P.mode]);
+ document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('on',b.dataset.view===view));
+ document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('on',view==='trades'&&b.dataset.mode===P.mode));
+ document.querySelectorAll('#mseg button').forEach(b=>b.classList.toggle('on',b.dataset.m===P.mode));
+ $('#pnav').hidden=P.mode==='all';$('#plabel').textContent=plabel();
+ $('#dash').hidden=view!=='dash';$('#trades').hidden=view!=='trades';
+ const keep=document.activeElement&&document.activeElement.id==='start';
+ if(view==='dash'&&!keep)$('#dash').innerHTML=dashHTML(A,K,all);
+ if(view==='trades')$('#trades').innerHTML=tradesHTML(K);
+ RENDERED={A,F,K,all,r};
+}
+let RENDERED=null;
+
+/* ---------- interactions ---------- */
+$('#dash').onclick=e=>{
+ const cm=e.target.closest('[data-cm]');if(cm){let y=calM.y,mo=calM.m+ +cm.dataset.cm;if(mo<0){mo=11;y--}if(mo>11){mo=0;y++}calM={y,m:mo};return render()}
+ const dy=e.target.closest('[data-day]');if(dy){P.mode='day';P.anchor=dy.dataset.day;setView('trades')}};
+$('#dash').oninput=e=>{if(e.target.id!=='start')return;S.start=+e.target.value||0;$('#balv').textContent=m(S.start+RENDERED.all.net);clearTimeout(tmr);
+ tmr=setTimeout(async()=>{const{error}=await sb.from('settings').upsert({user_id:U.id,start_balance:S.start},{onConflict:'user_id'});if(error)err(error);render()},700)};
+$('#dash').onfocusout=e=>{if(e.target.id==='start')render()};
+
+const FF=()=>$('#f').elements;
+function openForm(t){
+ const f=FF();$('#f').reset();
+ if(t){editId=String(t.id);f.date.value=t.date;f.ticker.value=t.ticker;f.side.value=t.side;f.strategy.value=t.strategy;f.entry.value=t.entry;f.exit.value=t.exit;f.stop.value=t.stop;f.shares.value=t.shares;f.fees.value=t.fees;f.ovr.value=t.ovr;f.notes.value=t.notes||'';$('#fTitle').textContent='Edit trade — '+t.ticker+' '+dfmt(t.date);$('#fBtn').textContent='Save changes'}
+ else{editId=null;f.date.value=today();$('#fTitle').textContent='New trade';$('#fBtn').textContent='Add trade'}
+ $('#fd').showModal();render()}
+function closeForm(){editId=null;$('#fd').close();render()}
+$('#newBtn').onclick=()=>openForm();$('#fCancel').onclick=closeForm;
+$('#fd').addEventListener('cancel',()=>{editId=null;setTimeout(render)});
+$('#f').onsubmit=async e=>{e.preventDefault();const f=FF(),v=n=>f[n].value,wasEdit=!!editId;
+ const row={trade_date:v('date'),ticker:v('ticker').toUpperCase().trim(),side:v('side'),strategy:v('strategy'),entry_price:+v('entry'),exit_price:+v('exit'),stop_loss:+v('stop'),shares:+v('shares'),fees:+v('fees')||0,pnl_override:v('ovr')===''?null:+v('ovr'),notes:v('notes').trim()||null};
+ const res=wasEdit?await sb.from('trades').update(row).eq('id',editId).select().single():await sb.from('trades').insert({...row,user_id:U.id}).select().single();
+ if(res.error)return err(res.error);
+ const nt=fromRow(res.data);
+ if(wasEdit){const i=S.trades.findIndex(t=>String(t.id)===editId);if(i>=0)S.trades[i]=nt}else S.trades.push(nt);
+ if(P.anchor&&P.mode!=='all'&&!inRange(range(),{date:nt.date})){P.anchor=nt.date}
+ closeForm();say(wasEdit?'Trade updated':'Trade added')};
+$('#trades').onclick=async e=>{const b=e.target.closest('button');if(!b)return;
+ if(b.dataset.edit){const t=S.trades.find(t=>String(t.id)===b.dataset.edit);if(t)openForm(t);return}
+ if(b.dataset.del&&confirm('Delete this trade?')){
+  const{error}=await sb.from('trades').delete().eq('id',b.dataset.del);if(error)return err(error);
+  S.trades=S.trades.filter(t=>String(t.id)!==b.dataset.del);render();say('Trade deleted')}};
+
+/* ---------- data + auth ---------- */
 const fromRow=r=>({id:r.id,date:r.trade_date,ticker:r.ticker,side:r.side,strategy:r.strategy||'',entry:+r.entry_price,exit:+r.exit_price,stop:+r.stop_loss,shares:+r.shares,fees:+r.fees||0,ovr:r.pnl_override==null?'':+r.pnl_override,notes:r.notes||''});
-const err=e=>{let t=e.message||String(e);if(/schema cache|does not exist|relation|column/i.test(t))t+=' — run schema.sql in the Supabase SQL Editor.';say('Error: '+t)};
-function showAuth(msg){U=null;S={start:10000,trades:[]};$('#app').hidden=true;$('#auth').hidden=false;$('#aMsg').textContent=msg||''}
+function showAuth(msg){U=null;S.trades=[];$('#app').hidden=true;$('#auth').hidden=false;$('#th2').hidden=false;$('#aMsg').textContent=msg||''}
+function showApp(){$('#auth').hidden=true;$('#th2').hidden=true;$('#app').hidden=false}
 async function enter(user){
- U=user;$('#auth').hidden=true;$('#app').hidden=false;
- const [t,st]=await Promise.all([sb.from('trades').select('*').order('trade_date'),sb.from('settings').select('start_balance').maybeSingle()]);
+ U=user;showApp();
+ const[t,st,sh]=await Promise.all([sb.from('trades').select('*').order('trade_date').order('created_at'),sb.from('settings').select('start_balance').maybeSingle(),sb.from('shares').select('*').maybeSingle()]);
  if(t.error)return err(t.error);
- S.trades=t.data.map(fromRow);S.start=st.data?+st.data.start_balance:10000;render();
+ S.trades=t.data.map(fromRow);S.start=st.data?+st.data.start_balance:10000;
+ S.share=sh.data?{enabled:sh.data.enabled,token:sh.data.token,slug:sh.data.slug||'',show_notes:sh.data.show_notes}:{enabled:false,token:crypto.randomUUID(),slug:'',show_notes:true};
+ P.anchor=null;render();
+}
+async function loadShared(first){
+ const{data,error}=await sb.rpc('get_shared',{p_key:TOKEN});
+ if(error){if(first){$('#banner').textContent='Could not load this journal: '+error.message;$('#banner').hidden=false}return}
+ if(!data){$('#banner').textContent='This share link is invalid or has been turned off by the owner.';$('#banner').hidden=false;return}
+ $('#banner').hidden=true;
+ const j=JSON.stringify(data);
+ if(j!==sig){const firstLoad=!sig;sig=j;S.start=+data.start_balance;S.trades=data.trades.map(fromRow);if(firstLoad)P.anchor=null;render()}
+ const d=new Date();$('#upd').textContent='· '+pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds());
 }
 async function boot(){
- if(!sb)return showAuth(cfgMsg);
+ if(!sb){if(RO){document.body.classList.add('ro');showApp();$('#banner').textContent=cfgMsg;$('#banner').hidden=false;render()}else showAuth(cfgMsg);return}
+ if(RO){document.body.classList.add('ro');showApp();render();await loadShared(true);setInterval(loadShared,8000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadShared()});return}
  const{data:{session}}=await sb.auth.getSession();
  session?enter(session.user):showAuth();
 }
@@ -168,47 +481,59 @@ $('#go').onclick=async()=>{
  let r;try{r=signup?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password})}catch(e){return $('#aMsg').textContent='Network error: '+e.message}
  if(r.error)return $('#aMsg').textContent=r.error.message;
  if(signup&&r.data.user&&!r.data.session&&(r.data.user.identities||[]).length===0)return $('#aMsg').textContent='This email is already registered. Please sign in.';
- if(r.data.session)enter(r.data.user);
- else $('#aMsg').textContent='Account created. Check your email to confirm, then sign in.';
+ if(r.data.session)enter(r.data.user);else $('#aMsg').textContent='Account created. Check your email to confirm, then sign in.';
 };
 $('#pw').onkeydown=e=>{if(e.key==='Enter')$('#go').click()};
 $('#out').onclick=async()=>{await sb.auth.signOut();showAuth()};
-$('#f').onsubmit=async e=>{e.preventDefault();const f=e.target,v=n=>f.elements[n].value;
- const row={trade_date:v('date'),ticker:v('ticker').toUpperCase().trim(),side:v('side'),strategy:v('strategy'),entry_price:+v('entry'),exit_price:+v('exit'),stop_loss:+v('stop'),shares:+v('shares'),fees:+v('fees')||0,pnl_override:v('ovr')===''?null:+v('ovr'),notes:v('notes').trim()||null,user_id:U.id};
- const{data,error}=await sb.from('trades').insert(row).select().single();
- if(error)return err(error);
- S.trades.push(fromRow(data));f.reset();f.elements.date.valueAsDate=new Date();render()};
-$('#start').oninput=e=>{S.start=+e.target.value||0;render();clearTimeout(tmr);
- tmr=setTimeout(async()=>{const{error}=await sb.from('settings').upsert({user_id:U.id,start_balance:S.start},{onConflict:'user_id'});if(error)err(error)},600)};
-$('#tb').onclick=async e=>{const d=e.target.dataset;
- if(d.edit){editId=d.edit;return render()}
- if(d.cancel){editId=null;return render()}
- if(d.save){const notes=$('#ne').value.trim();
-  const{error}=await sb.from('trades').update({notes:notes||null}).eq('id',d.save);if(error)return err(error);
-  const t=S.trades.find(t=>String(t.id)===d.save);if(t)t.notes=notes;editId=null;return render()}
- if(d.id&&confirm('Delete this trade?')){
-  const{error}=await sb.from('trades').delete().eq('id',d.id);if(error)return err(error);
-  S.trades=S.trades.filter(t=>String(t.id)!==d.id);render()}};
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));$('#log').hidden=b.dataset.t!=='log';$('#dash').hidden=b.dataset.t!=='dash'});
-let DL=null;
-(async()=>{try{DL=await window.claude.use('downloads')}catch(e){}
- if(!DL)DL={save:async({filename,data})=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data]));a.download=filename;document.body.appendChild(a);a.click();a.remove()}}})();
-const say=t=>{$('#msg').textContent=t;setTimeout(()=>$('#msg').textContent='',4000)};
-async function dl(name,data){try{await DL.save({filename:name,data});say('Saved '+name)}catch(e){say(e.code==='declined'?'Download cancelled.':'Download failed: '+(e.message||e.code))}}
-$('#xl').onclick=()=>{const s=stats();
- const rows=s.T.map(t=>({Date:t.date,Ticker:t.ticker,Side:t.side,Strategy:t.strategy,Entry:t.entry,Exit:t.exit,'Stop Loss':t.stop,Shares:t.shares,Fees:t.fees,'Net P&L':t.pnl,'R:R':+t.rr.toFixed(2),Result:t.res,Notes:t.notes||''}));
- let b=S.start;const run=s.T.map(t=>({Date:t.date,Ticker:t.ticker,'Net P&L':t.pnl,'Account Balance':+(b+=t.pnl).toFixed(2)}));
- const d=[['Metric','Value'],['Starting balance',S.start],['Account balance',+s.bal.toFixed(2)],['Total trades',s.T.length],['Wins',s.w],['Losses',s.l],['Win rate %',+s.wr.toFixed(1)],['Net P&L',+s.net.toFixed(2)],['Profit factor',s.pf===Infinity?'Inf':+s.pf.toFixed(2)],['Return %',+(S.start?s.net/S.start*100:0).toFixed(2)],['Expectancy ratio (R)',+s.expR.toFixed(2)],['Expectancy per trade',+s.exp.toFixed(2)]];
+
+/* ---------- share ---------- */
+const SLUG_RE=/^[a-z0-9][a-z0-9-]{2,39}$/;
+let _pu='';
+const rawUrl=()=>{try{return localStorage.getItem('tj_public_url')||_pu}catch(e){return _pu}};
+const pubUrl=()=>{let u=(rawUrl()||PUBLIC_URL).trim();if(u&&!/^https?:\/\//i.test(u))u='https://'+u;return u.replace(/\/+$/,'')};
+const base=()=>{const p=pubUrl();if(p)return p+'/';return/^https?:$/.test(location.protocol)?location.origin+location.pathname.replace(/[^/]*$/,''):''};
+const link=()=>{const b=base();return!b?'':S.share.slug?b+S.share.slug:b+'?view='+S.share.token};
+function shareUI(){const s=S.share;$('#shOn').checked=s.enabled;$('#shNotes').checked=s.show_notes;$('#shBox').hidden=!s.enabled;const l=link();$('#shLink').value=l;$('#shLink').placeholder='Set your website address below';$('#shCopy').disabled=!l;$('#shWarn').hidden=!!base();$('#shSlug').value=s.slug||'';$('#shPre').textContent=(base()||'https://your-site/')+(s.slug||'…');$('#shUrl').value=rawUrl()||PUBLIC_URL}
+async function saveShare(){const s=S.share,{error}=await sb.from('shares').upsert({user_id:U.id,token:s.token,slug:s.slug||null,enabled:s.enabled,show_notes:s.show_notes},{onConflict:'user_id'});
+ if(error){say(error.code==='23505'?'That link name is already taken':error.code==='23514'?'That link name is not allowed — try another':'Error: '+(error.message||error)+(/column|schema cache|function/i.test(error.message||'')?' — run schema.sql in Supabase.':''),1);return false}
+ say('Sharing settings saved');return true}
+$('#shBtn').onclick=()=>{shareUI();$('#sh').showModal()};
+$('#shClose').onclick=()=>$('#sh').close();
+$('#shOn').onchange=async e=>{S.share.enabled=e.target.checked;shareUI();await saveShare()};
+$('#shNotes').onchange=async e=>{S.share.show_notes=e.target.checked;await saveShare()};
+$('#shNew').onclick=async()=>{if(!confirm('The old random link will stop working. Continue?'))return;S.share.token=crypto.randomUUID();shareUI();await saveShare()};
+$('#shSave').onclick=async()=>{const v=$('#shSlug').value.trim().toLowerCase().replace(/\s+/g,'-'),prev=S.share.slug;
+ if(!v)return say('Type a name, or press “Use random link instead”',1);
+ if(!SLUG_RE.test(v))return say('Use 3–40 letters, numbers or hyphens (start with a letter or number)',1);
+ S.share.slug=v;if(!await saveShare())S.share.slug=prev;shareUI()};
+$('#shClr').onclick=async()=>{const prev=S.share.slug;S.share.slug='';if(!await saveShare())S.share.slug=prev;shareUI()};
+$('#shRnd').onclick=()=>{const r=[...crypto.getRandomValues(new Uint8Array(4))].map(x=>'abcdefghjkmnpqrstuvwxyz23456789'[x%31]).join('');const b=$('#shSlug').value.trim().toLowerCase().replace(/\s+/g,'-').replace(/-+$/,'')||'view-journal';$('#shSlug').value=(b+'-'+r).slice(0,40)};
+$('#shUrlSave').onclick=()=>{let v=$('#shUrl').value.trim();if(v&&!/^https?:\/\//i.test(v))v='https://'+v;v=v.replace(/\/+$/,'');
+ if(v&&!/^https?:\/\/[^\s\/]+\.[^\s\/]+|^https?:\/\/localhost/i.test(v))return say('Enter a valid website address, e.g. https://my-journal.netlify.app',1);
+ _pu=v;try{v?localStorage.setItem('tj_public_url',v):localStorage.removeItem('tj_public_url')}catch(e){}shareUI();say(v?'Website address saved':'Website address cleared')};
+$('#shCopy').onclick=async()=>{if(!$('#shLink').value)return say('Set your website address first',1);try{await navigator.clipboard.writeText($('#shLink').value)}catch(e){$('#shLink').select();document.execCommand('copy')}say('Link copied')};
+
+/* ---------- exports (respect the Day / Week / Month filter) ---------- */
+$('#xl').onclick=()=>{const{A,F,K,all}=RENDERED,pl=plabel();
+ const rows=F.map(t=>({Week:t.wk.label,Date:dfmt(t.date),Ticker:t.ticker,Side:t.side,Strategy:t.strategy,Entry:t.entry,Exit:t.exit,'Stop Loss':t.stop,Shares:t.shares,Fees:t.fees,'Net P&L':t.pnl,'R:R':+t.rr.toFixed(2),Result:t.res,Notes:t.notes||''}));
+ let b=S.start;const run=[];A.forEach(t=>{b+=t.pnl;if(F.includes(t))run.push({Date:dfmt(t.date),Ticker:t.ticker,'Net P&L':t.pnl,'Account Balance':+b.toFixed(2)})});
+ const wks=K.weeks.map(x=>({Week:x.label,Trades:x.n,Wins:x.w,Losses:x.l,'Win Rate %':+(x.n?x.w/x.n*100:0).toFixed(1),'Net P&L':+x.pnl.toFixed(2)}));
+ const d=[['Report period',pl],['Starting balance',S.start],['Account balance (all time)',+(S.start+all.net).toFixed(2)],['Trades',K.n],['Wins',K.w],['Losses',K.l],['Win rate %',+K.wr.toFixed(1)],['Net P&L',+K.net.toFixed(2)],['Profit factor',K.pf===Infinity?'Inf':+K.pf.toFixed(2)],['Expectancy ratio (R)',+K.expR.toFixed(2)],['Expectancy per trade',+K.exp.toFixed(2)],['Max drawdown',+K.maxdd.toFixed(2)],['Best win streak',K.bw]];
  const wb=XLSX.utils.book_new();
  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(d),'Dashboard');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Journal');
+ XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(wks),'Weekly Summary');
  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(run),'Balance History');
- dl('trade-journal.xlsx',XLSX.write(wb,{type:'array',bookType:'xlsx'}))};
-$('#pf').onclick=()=>{const s=stats(),doc=new window.jspdf.jsPDF({orientation:'landscape'});
- doc.setFontSize(18);doc.text('Trade Journal',14,16);doc.setFontSize(10);
- doc.text(`Starting balance: ${m(S.start)}   Account balance: ${m(s.bal)}   Net P&L: ${sm(s.net)}`,14,24);
- doc.text(`Trades: ${s.T.length}   Win rate: ${s.wr.toFixed(0)}% (${s.w}W / ${s.l}L)   Profit factor: ${s.pf===Infinity?'Inf':s.pf.toFixed(2)}   Expectancy: ${sm(s.exp)}/trade (${s.expR.toFixed(2)}R)`,14,30);
- doc.autoTable({startY:36,head:[['Date','Ticker','Side','Strategy','Entry','Exit','Stop','Shares','Net P&L','R:R','Result','Notes']],body:s.T.map(t=>[t.date,t.ticker,t.side,t.strategy,m(t.entry),m(t.exit),m(t.stop),t.shares,sm(t.pnl),t.rr.toFixed(2),t.res,t.notes||'']),columnStyles:{11:{cellWidth:70}},headStyles:{fillColor:[124,58,237]},styles:{fontSize:9}});
- dl('trade-journal.pdf',doc.output('arraybuffer'))};
-render();boot();
+ XLSX.writeFile(wb,'trade-journal-'+P.mode+'.xlsx')};
+$('#pf').onclick=()=>{const{K,all}=RENDERED,doc=new window.jspdf.jsPDF({orientation:'landscape'});
+ doc.setFontSize(18);doc.text('Trade Journal — '+plabel(),14,16);doc.setFontSize(10);
+ doc.text(`Starting balance: ${m(S.start)}   Account balance: ${m(S.start+all.net)}   Period net P&L: ${sm(K.net)}`,14,24);
+ doc.text(`Trades: ${K.n}   Win rate: ${K.wr.toFixed(0)}% (${K.w}W / ${K.l}L)   Profit factor: ${K.pf===Infinity?'Inf':K.pf.toFixed(2)}   Expectancy: ${sm(K.exp)}/trade (${K.expR.toFixed(2)}R)`,14,30);
+ const body=[];let last='';
+ [...K.T].reverse().forEach(t=>{if(t.wk.key!==last){last=t.wk.key;const x=K.W.get(last);body.push([{content:`Week ${x.label}   |   ${x.n} trades, ${x.w}W/${x.l}L   |   ${sm(x.pnl)}`,colSpan:12,styles:{fillColor:[230,246,240],textColor:[16,120,85],fontStyle:'bold'}}])}
+  body.push([dfmt(t.date),t.ticker,t.side,t.strategy,m(t.entry),m(t.exit),m(t.stop),t.shares,sm(t.pnl),t.rr.toFixed(2),t.res,t.notes||''])});
+ doc.autoTable({startY:36,head:[['Date','Ticker','Side','Strategy','Entry','Exit','Stop','Shares','Net P&L','R:R','Result','Notes']],body,headStyles:{fillColor:[24,24,27]},styles:{fontSize:9},columnStyles:{11:{cellWidth:60}}});
+ doc.save('trade-journal-'+P.mode+'.pdf')};
+
+boot();
 </script></body></html>
